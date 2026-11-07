@@ -185,6 +185,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (!mActivity.isVisible()) return;
 
         ShareUtils.copyTextToClipboard(mActivity, text);
+        mActivity.getTerminalView().onProgramCopiedToClipboard();
     }
 
     @Override

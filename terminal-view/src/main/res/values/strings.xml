@@ -2,4 +2,6 @@
   <string name="paste_text">Paste</string>
   <string name="copy_text">Copy</string>
   <string name="text_selection_more">More…</string>
+  <string name="mouse_selection_copy">복사</string>
+  <string name="mouse_selection_lost">선택이 사라져서 복사하지 못했습니다. 다시 선택해 주세요.</string>
 </resources>

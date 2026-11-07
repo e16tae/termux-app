@@ -34,7 +34,6 @@ import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.Magnifier;
 import android.widget.Scroller;
 
 import androidx.annotation.Nullable;
@@ -43,6 +42,7 @@ import androidx.annotation.RequiresApi;
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
+import com.termux.view.textselection.MouseSelectionController;
 import com.termux.view.textselection.TextSelectionCursorController;
 
 /** View displaying and interacting with a {@link TerminalSession}. */
@@ -122,23 +122,8 @@ public final class TerminalView extends View {
 
     private final Runnable mPendingEchoTimeout = this::clearPendingEcho;
 
-    /** If a finger is dragging after a long press, which is reported to the program as a mouse drag. */
-    private boolean mTouchMouseDragging;
-    private int mTouchMouseDragColumn, mTouchMouseDragRow;
-    private Magnifier mTouchMouseDragMagnifier;
-
-    /** How often a held finger reports its position, see {@link #mTouchMouseDragRepeat}. */
-    private static final int TOUCH_MOUSE_DRAG_REPEAT_MILLIS = 100;
-
-    /** Programs scroll a selection on mouse events at an edge, and a held finger does not produce any. */
-    private final Runnable mTouchMouseDragRepeat = new Runnable() {
-        @Override
-        public void run() {
-            if (!mTouchMouseDragging || mEmulator == null) return;
-            mEmulator.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, mTouchMouseDragColumn + 1, mTouchMouseDragRow + 1, true);
-            postDelayed(this, TOUCH_MOUSE_DRAG_REPEAT_MILLIS);
-        }
-    };
+    /** Selects text with a finger in programs that track the mouse. */
+    private MouseSelectionController mMouseSelection;
 
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
@@ -199,6 +184,8 @@ public final class TerminalView extends View {
                 if (mEmulator != null && mEmulator.isMouseTrackingActive() && !event.isFromSource(InputDevice.SOURCE_MOUSE) && !isSelectingText() && !scrolledWithFinger) {
                     // Quick event processing when mouse tracking is active - do not wait for check of double tapping
                     // for zooming.
+                    // A selection being held ends here: this click replaces it without copying.
+                    if (mMouseSelection != null) mMouseSelection.reset();
                     sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
                     sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
                     return true;
@@ -227,9 +214,10 @@ public final class TerminalView extends View {
                     // If moving with mouse pointer while pressing button, report that instead of scroll.
                     // This means that we do not report moving with button press-events for a touch scroll,
                     // since we cannot just start sending these events without a starting press event,
-                    // which for touch input is only sent after a long press, see startTouchMouseDrag().
+                    // which for touch input is only sent after a long press, see MouseSelectionController.
                     sendMouseEventCode(e, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
                 } else {
+                    cancelMouseSelectionIfHolding();
                     scrolledWithFinger = true;
                     distanceY += mScrollRemainder;
                     int deltaRows = (int) (distanceY / mRenderer.mFontLineSpacing);
@@ -307,7 +295,8 @@ public final class TerminalView extends View {
                 if (!isSelectingText()) {
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
                     if (mEmulator.isMouseTrackingActive() && !event.isFromSource(InputDevice.SOURCE_MOUSE)) {
-                        startTouchMouseDrag(event);
+                        if (mMouseSelection == null) mMouseSelection = new MouseSelectionController(TerminalView.this);
+                        mMouseSelection.startDrag(event);
                     } else {
                         startTextSelectionMode(event);
                     }
@@ -353,7 +342,7 @@ public final class TerminalView extends View {
         mCombiningAccent = 0;
         mComposingText = null;
         clearPendingEcho();
-        stopTouchMouseDrag();
+        if (mMouseSelection != null) mMouseSelection.reset();
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -717,8 +706,8 @@ public final class TerminalView extends View {
         if (mEmulator == null) return true;
         final int action = event.getAction();
 
-        if (mTouchMouseDragging) {
-            handleTouchMouseDrag(event);
+        if (mMouseSelection != null && mMouseSelection.isDragging()) {
+            mMouseSelection.onDragTouchEvent(event);
             mGestureRecognizer.onTouchEvent(event);
             return true;
         }
@@ -766,6 +755,9 @@ public final class TerminalView extends View {
             cancelRequestAutoFill();
             if (isSelectingText()) {
                 stopTextSelectionMode();
+                return true;
+            } else if (mMouseSelection != null && mMouseSelection.isHolding()) {
+                if (event.getAction() == KeyEvent.ACTION_UP) mMouseSelection.cancel();
                 return true;
             } else if (mClient.shouldBackButtonBeMappedToEscape()) {
                 // Intercept back button to treat it as escape:
@@ -895,6 +887,7 @@ public final class TerminalView extends View {
         // restartInput clears the IME's composing buffer, so the following ㅅ enters detached.
         if (!KeyEvent.isModifierKey(keyCode)) {
             finalizeComposingIfActive();
+            cancelMouseSelectionIfHolding();
         }
         if (isSelectingText()) {
             stopTextSelectionMode();
@@ -979,6 +972,7 @@ public final class TerminalView extends View {
         // Same rationale as onKeyDown(): some input paths (extra-keys literal characters) call
         // inputCodePoint directly, bypassing onKeyDown and the IME. Finalize composing first.
         finalizeComposingIfActive();
+        cancelMouseSelectionIfHolding();
 
         // Ensure cursor is shown when a key is pressed down like long hold on (arrow) keys
         if (mEmulator != null)
@@ -1039,65 +1033,14 @@ public final class TerminalView extends View {
         }
     }
 
-    /**
-     * Report a finger dragging after a long press as a mouse drag when the program tracks the mouse.
-     * The program can then select with its own knowledge of the screen, e.g. a multiplexer that only
-     * selects inside a pane, which the text selection of this view cannot do for a whole screen.
-     *
-     * The drag starts with a double click, which selects the whole word under the finger and makes
-     * the rest of the drag extend by whole words, since a finger is too coarse to hit a character.
-     */
-    private void startTouchMouseDrag(MotionEvent event) {
-        mTouchMouseDragging = true;
-        final int[] columnAndRow = getColumnAndRow(event, false);
-        mTouchMouseDragColumn = columnAndRow[0];
-        mTouchMouseDragRow = columnAndRow[1];
-        // Keep the drawer from taking over a drag that gets near the screen edge.
-        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
-        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
-        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
-        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
-        showTouchMouseDragMagnifier(event);
-        postDelayed(mTouchMouseDragRepeat, TOUCH_MOUSE_DRAG_REPEAT_MILLIS);
+    /** Input is about to go to the program, which should not happen behind a held mouse button. */
+    private void cancelMouseSelectionIfHolding() {
+        if (mMouseSelection != null && mMouseSelection.isHolding()) mMouseSelection.cancel();
     }
 
-    /** Show what is under the finger above it, including the selection the program draws there. */
-    private void showTouchMouseDragMagnifier(MotionEvent event) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
-        if (mTouchMouseDragMagnifier == null) {
-            final float density = getResources().getDisplayMetrics().density;
-            mTouchMouseDragMagnifier = new Magnifier.Builder(this)
-                .setSize((int) (240 * density), (int) (64 * density))
-                .setInitialZoom(1.5f)
-                .setDefaultSourceToMagnifierOffset(0, (int) (-96 * density))
-                .build();
-        }
-        mTouchMouseDragMagnifier.show(event.getX(), event.getY());
-    }
-
-    private void stopTouchMouseDrag() {
-        mTouchMouseDragging = false;
-        removeCallbacks(mTouchMouseDragRepeat);
-        if (mTouchMouseDragMagnifier != null) mTouchMouseDragMagnifier.dismiss();
-    }
-
-    private void handleTouchMouseDrag(MotionEvent event) {
-        switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_MOVE:
-                final int[] columnAndRow = getColumnAndRow(event, false);
-                if (columnAndRow[0] != mTouchMouseDragColumn || columnAndRow[1] != mTouchMouseDragRow) {
-                    mTouchMouseDragColumn = columnAndRow[0];
-                    mTouchMouseDragRow = columnAndRow[1];
-                    sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
-                }
-                showTouchMouseDragMagnifier(event);
-                break;
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                stopTouchMouseDrag();
-                sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
-                break;
-        }
+    /** To be called when the program in the terminal has put text on the clipboard. */
+    public void onProgramCopiedToClipboard() {
+        if (mMouseSelection != null) mMouseSelection.onProgramCopiedToClipboard();
     }
 
     /** Input the specified keyCode if applicable and return if the input was consumed. */
@@ -1226,6 +1169,7 @@ public final class TerminalView extends View {
 
             // render the text selection handles
             renderTextSelection();
+            if (mMouseSelection != null) mMouseSelection.render();
 
             // render the in-progress IME composing text (e.g. CJK) preview at the cursor
             drawComposingText(canvas);
@@ -1267,6 +1211,7 @@ public final class TerminalView extends View {
             if (mComposingText == null) return;
             mComposingText = null;
         } else {
+            cancelMouseSelectionIfHolding();
             mComposingText = newPreview;
         }
         invalidate();
@@ -1732,6 +1677,9 @@ public final class TerminalView extends View {
     }
 
     private ActionMode getTextSelectionActionMode() {
+        if (mMouseSelection != null && mMouseSelection.isHolding() && mMouseSelection.getActionMode() != null) {
+            return mMouseSelection.getActionMode();
+        }
         if (mTextSelectionCursorController != null) {
             return mTextSelectionCursorController.getActionMode();
         } else {
@@ -1777,7 +1725,7 @@ public final class TerminalView extends View {
         super.onDetachedFromWindow();
 
         clearPendingEcho();
-        stopTouchMouseDrag();
+        if (mMouseSelection != null) mMouseSelection.onDetached();
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
@@ -1821,6 +1769,9 @@ public final class TerminalView extends View {
     }
 
     public void updateFloatingToolbarVisibility(MotionEvent event) {
+        if (mMouseSelection != null && (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL)) {
+            mMouseSelection.onHandleTouchFinished();
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && getTextSelectionActionMode() != null) {
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_MOVE:

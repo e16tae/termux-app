@@ -28,7 +28,9 @@ public class TerminalToolbarViewPager {
 
         @Override
         public int getCount() {
-            return 2;
+            // Only the extra keys: the text input page was for seeing text while composing it, which
+            // the terminal view now shows itself, and swiping to it got in the way of the extra keys.
+            return 1;
         }
 
         @Override
