@@ -121,6 +121,10 @@ public final class TerminalView extends View {
 
     private final Runnable mPendingEchoTimeout = this::clearPendingEcho;
 
+    /** If a finger is dragging after a long press, which is reported to the program as a mouse drag. */
+    private boolean mTouchMouseDragging;
+    private int mTouchMouseDragColumn, mTouchMouseDragRow;
+
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
      *
@@ -206,9 +210,9 @@ public final class TerminalView extends View {
                 if (mEmulator == null) return true;
                 if (mEmulator.isMouseTrackingActive() && e.isFromSource(InputDevice.SOURCE_MOUSE)) {
                     // If moving with mouse pointer while pressing button, report that instead of scroll.
-                    // This means that we never report moving with button press-events for touch input,
+                    // This means that we do not report moving with button press-events for a touch scroll,
                     // since we cannot just start sending these events without a starting press event,
-                    // which we do not do for touch input, only mouse in onTouchEvent().
+                    // which for touch input is only sent after a long press, see startTouchMouseDrag().
                     sendMouseEventCode(e, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
                 } else {
                     scrolledWithFinger = true;
@@ -287,7 +291,11 @@ public final class TerminalView extends View {
                 if (mClient.onLongPress(event)) return;
                 if (!isSelectingText()) {
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                    startTextSelectionMode(event);
+                    if (mEmulator.isMouseTrackingActive() && !event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+                        startTouchMouseDrag(event);
+                    } else {
+                        startTextSelectionMode(event);
+                    }
                 }
             }
         });
@@ -330,6 +338,7 @@ public final class TerminalView extends View {
         mCombiningAccent = 0;
         mComposingText = null;
         clearPendingEcho();
+        mTouchMouseDragging = false;
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -693,6 +702,12 @@ public final class TerminalView extends View {
         if (mEmulator == null) return true;
         final int action = event.getAction();
 
+        if (mTouchMouseDragging) {
+            handleTouchMouseDrag(event);
+            mGestureRecognizer.onTouchEvent(event);
+            return true;
+        }
+
         if (isSelectingText()) {
             updateFloatingToolbarVisibility(event);
             mGestureRecognizer.onTouchEvent(event);
@@ -1006,6 +1021,39 @@ public final class TerminalView extends View {
 
             // If left alt, send escape before the code point to make e.g. Alt+B and Alt+F work in readline:
             mTermSession.writeCodePoint(altDown, codePoint);
+        }
+    }
+
+    /**
+     * Report a finger dragging after a long press as a mouse drag when the program tracks the mouse.
+     * The program can then select with its own knowledge of the screen, e.g. a multiplexer that only
+     * selects inside a pane, which the text selection of this view cannot do for a whole screen.
+     */
+    private void startTouchMouseDrag(MotionEvent event) {
+        mTouchMouseDragging = true;
+        final int[] columnAndRow = getColumnAndRow(event, false);
+        mTouchMouseDragColumn = columnAndRow[0];
+        mTouchMouseDragRow = columnAndRow[1];
+        // Keep the drawer from taking over a drag that gets near the screen edge.
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
+    }
+
+    private void handleTouchMouseDrag(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_MOVE:
+                final int[] columnAndRow = getColumnAndRow(event, false);
+                if (columnAndRow[0] != mTouchMouseDragColumn || columnAndRow[1] != mTouchMouseDragRow) {
+                    mTouchMouseDragColumn = columnAndRow[0];
+                    mTouchMouseDragRow = columnAndRow[1];
+                    sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                mTouchMouseDragging = false;
+                sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
+                break;
         }
     }
 
@@ -1686,6 +1734,7 @@ public final class TerminalView extends View {
         super.onDetachedFromWindow();
 
         clearPendingEcho();
+        mTouchMouseDragging = false;
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
