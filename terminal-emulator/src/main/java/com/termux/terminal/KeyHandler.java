@@ -248,7 +248,10 @@ public final class KeyHandler {
                 // This is back-tab when shifted:
                 return (keyMode & KEYMOD_SHIFT) == 0 ? "\011" : "\033[Z";
             case KEYCODE_ENTER:
-                return ((keyMode & KEYMOD_ALT) == 0) ? "\r" : "\033\r";
+                if ((keyMode & KEYMOD_ALT) != 0) return "\033\r";
+                // Shift+Enter has no code of its own in a plain terminal. Ctrl+J is what programs
+                // like Claude Code take as a new line in every terminal, and in a shell it is Enter.
+                return ((keyMode & KEYMOD_SHIFT) != 0) ? "\n" : "\r";
 
             case KEYCODE_NUMPAD_ENTER:
                 return keypadApplication ? transformForModifiers("\033O", keyMode, 'M') : "\n";

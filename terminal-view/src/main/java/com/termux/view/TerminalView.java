@@ -491,8 +491,9 @@ public final class TerminalView extends View {
                         codePoint = firstChar;
                     }
 
-                    // Check onKeyDown() for details.
-                    if (mClient.readShiftKey())
+                    // Check onKeyDown() for details. Reading the shift key resets it.
+                    final boolean shiftDown = mClient.readShiftKey();
+                    if (shiftDown)
                         codePoint = Character.toUpperCase(codePoint);
 
                     boolean ctrlHeld = false;
@@ -501,8 +502,8 @@ public final class TerminalView extends View {
                             // The AOSP keyboard and descendants seems to send \n as text when the enter key is pressed,
                             // instead of a key event like most other keyboard apps. A terminal expects \r for the enter
                             // key (although when icrnl is enabled this doesn't make a difference - run 'stty -icrnl' to
-                            // check the behaviour).
-                            codePoint = '\r';
+                            // check the behaviour). With shift it stays \n, see KeyHandler.getCode().
+                            if (!shiftDown) codePoint = '\r';
                         }
 
                         // E.g. penti keyboard for ctrl input.

@@ -200,4 +200,12 @@ public class KeyHandlerTest extends TestCase {
         assertKeysEquals("\033[3~", KeyHandler.getCode(KeyEvent.KEYCODE_NUMPAD_DOT, 0, false, false));
 	}
 
+
+	public void testEnter() {
+		assertEquals("\r", KeyHandler.getCode(KeyEvent.KEYCODE_ENTER, 0, false, false));
+		assertEquals("\n", KeyHandler.getCode(KeyEvent.KEYCODE_ENTER, KeyHandler.KEYMOD_SHIFT, false, false));
+		assertEquals("\033\r", KeyHandler.getCode(KeyEvent.KEYCODE_ENTER, KeyHandler.KEYMOD_ALT, false, false));
+		assertEquals("\033\r", KeyHandler.getCode(KeyEvent.KEYCODE_ENTER, KeyHandler.KEYMOD_ALT | KeyHandler.KEYMOD_SHIFT, false, false));
+	}
+
 }
