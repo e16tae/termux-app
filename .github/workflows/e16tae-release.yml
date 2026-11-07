@@ -22,6 +22,8 @@ env:
   UPSTREAM_REPO: termux/termux-app
   APP_NAME: Termux (e16tae)
   GRADLE_TASK: assembleRelease
+  # gh would otherwise resolve the "upstream" remote as the base repo.
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   release:
@@ -116,9 +118,9 @@ jobs:
             name="$(basename "$apk" .apk)"
             name="${name%-unsigned}"
             "$BT/zipalign" -f -p 4 "$apk" "$RUNNER_TEMP/aligned.apk"
-            "$BT/apksigner" sign --ks "$KS" --ks-pass env:KS_PASS --ks-key-alias "$KS_ALIAS" \
+            "$BT/apksigner" sign --v4-signing-enabled false --ks "$KS" --ks-pass env:KS_PASS --ks-key-alias "$KS_ALIAS" \
               --out "dist/${name}.apk" "$RUNNER_TEMP/aligned.apk"
-            "$BT/apksigner" verify --print-certs "dist/${name}.apk" | head -3
+            "$BT/apksigner" verify --print-certs "dist/${name}.apk" | sed -n 1,3p
           done
           rm -f "$KS"
           (cd dist && sha256sum *.apk > SHA256SUMS)
