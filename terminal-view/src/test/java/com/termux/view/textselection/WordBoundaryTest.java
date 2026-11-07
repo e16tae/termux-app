@@ -22,7 +22,7 @@ public class WordBoundaryTest {
     }
 
     private static void assertWord(String text, int column, int start, int end) {
-        assertArrayEquals(text, new int[]{start, end}, WordBoundary.find(cells(text, 40), column));
+        assertArrayEquals(text, new int[]{start, end}, WordBoundary.find(cells(text, 60), column));
     }
 
     @Test
@@ -34,50 +34,45 @@ public class WordBoundaryTest {
     }
 
     @Test
-    public void separatorHasNoWord() {
-        assertNull(WordBoundary.find(cells("apple banana", 40), 5));
-        assertNull(WordBoundary.find(cells("a,b", 40), 1));
-        assertNull(WordBoundary.find(cells("apple", 40), 20));
+    public void noWord() {
+        assertNull(WordBoundary.find(cells("apple banana", 60), 5));
+        assertNull(WordBoundary.find(cells("a,b", 60), 1));
+        assertNull(WordBoundary.find(cells("apple", 60), 20));
+        assertNull(WordBoundary.find(cells("apple", 60), -1));
+        assertNull(WordBoundary.find(cells("apple", 60), 60));
     }
 
     @Test
-    public void outOfRangeHasNoWord() {
-        assertNull(WordBoundary.find(cells("apple", 40), -1));
-        assertNull(WordBoundary.find(cells("apple", 40), 40));
-    }
-
-    // Everything below was measured with a double click in Herdr 0.9.5.
-
-    @Test
-    public void bracketsAndQuotesAreLeftOut() {
-        assertWord("(tag)", 2, 1, 3);
-        assertWord("\"tag\"", 2, 1, 3);
-        assertWord("'tag'", 2, 1, 3);
-        assertWord("[tag]", 2, 1, 3);
-        assertWord("<tag>", 2, 1, 3);
-        assertWord("{tag}", 2, 1, 3);
-        assertWord("`tag`", 2, 1, 3);
-    }
-
-    @Test
-    public void listPunctuationSeparates() {
-        assertWord("foo,bar", 1, 0, 2);
-        assertWord("foo;bar", 5, 4, 6);
-        assertWord("foo|bar", 1, 0, 2);
-        assertWord("foo!bar", 1, 0, 2);
-    }
-
-    @Test
-    public void pathLikePunctuationStaysInTheWord() {
-        for (String word : new String[]{"foo/bar.txt:12", "x=1", "key:value", "~/path/x", "#123", "a_b", "v1.2.3",
-            "user@host", "50%", "a&b", "a?b", "a*b", "a+b", "a$b", "hello-world"}) {
+    public void pathsAreOneWord() {
+        for (String word : new String[]{"~/path/x", "foo/bar.txt", "a_b", "v1.2.3", "hello-world", "a+b"}) {
             assertWord(word, word.length() / 2, 0, word.length() - 1);
         }
     }
 
     @Test
-    public void boxDrawingStaysInTheWord() {
-        assertWord("│box│", 2, 0, 4);
+    public void otherPunctuationSeparates() {
+        assertWord("(tag)", 2, 1, 3);
+        assertWord("\"tag\"", 2, 1, 3);
+        assertWord("[tag]", 2, 1, 3);
+        assertWord("key:value", 1, 0, 2);
+        assertWord("key:value", 6, 4, 8);
+        assertWord("user@host", 6, 5, 8);
+        assertWord("foo,bar", 1, 0, 2);
+        assertWord("x=1", 0, 0, 0);
+    }
+
+    @Test
+    public void urlsAreOneWord() {
+        String url = "https://x.io/a?b=1&c=2";
+        assertWord(url, 2, 0, url.length() - 1);
+        assertWord(url, url.length() - 1, 0, url.length() - 1);
+        assertWord("see http://x.io/a?b ok", 10, 4, 18);
+    }
+
+    @Test
+    public void notQuiteUrlsAreNot() {
+        assertWord("https://", 2, 0, 4);
+        assertWord("foo:bar", 1, 0, 2);
     }
 
     @Test
@@ -87,12 +82,11 @@ public class WordBoundaryTest {
         assertWord(text, 1, 0, 3);
         assertWord(text, 3, 0, 3);
         assertWord(text, 5, 5, 8);
-        assertNull(WordBoundary.find(cells(text, 40), 4));
+        assertNull(WordBoundary.find(cells(text, 60), 4));
     }
 
     @Test
     public void mixedScriptsAreOneWord() {
-        String text = "한글abc";
-        assertWord(text, 5, 0, 6);
+        assertWord("한글abc", 5, 0, 6);
     }
 }

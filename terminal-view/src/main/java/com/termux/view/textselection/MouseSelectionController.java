@@ -26,8 +26,12 @@ import java.util.Arrays;
  *
  * A long press sends a double click, so the program selects the word under the finger and a drag
  * extends by words. Lifting the finger keeps the button held, and shows handles for adjusting by
- * characters and a copy action. Copying releases the button. Tapping elsewhere clicks there, which
- * drops the selection without copying.
+ * characters and a copy action. Copying releases the button.
+ *
+ * Which program selects depends on the pane: Claude Code tracks the mouse itself in fullscreen, and
+ * otherwise Herdr selects. Claude Code copies a selection on any release, and also on a new press,
+ * so nothing that should not copy may do either with a selection in place. {@link #CLEAR_SELECTION}
+ * drops the selection in both first.
  *
  * The program does not report its selection, so the handles show where this class expects it to be.
  */
@@ -36,6 +40,12 @@ public class MouseSelectionController implements CursorController {
     private static final int DRAG_REPEAT_MILLIS = 100;
     private static final int COPY_TIMEOUT_MILLIS = 1000;
     private static final int ACTION_COPY = 1;
+
+    /**
+     * Ctrl+Space. Claude Code clears a selection on a key it has no other use for, Herdr does as well,
+     * and a shell shows nothing for it, unlike function keys, which print part of their sequence.
+     */
+    private static final String CLEAR_SELECTION = "\0";
 
     /** Further than any double click tolerance of the program. */
     private static final int PLAIN_PRESS_DISTANCE = 4;
@@ -97,6 +107,7 @@ public class MouseSelectionController implements CursorController {
 
     /** Start from a long press. This also replaces a selection that is being held. */
     public void startDrag(MotionEvent event) {
+        if (mState == State.HOLDING) clearSelection();
         hideHoldingUi();
         final int[] columnAndRow = mTerminalView.getColumnAndRow(event, false);
         mPressColumn = mLastColumn = clampColumn(columnAndRow[0]);
@@ -203,15 +214,18 @@ public class MouseSelectionController implements CursorController {
     /** Drop the selection in the program without copying. */
     public void cancel() {
         if (mState == State.IDLE) return;
-        // A click replaces the selection, and its release has nothing to copy.
-        sendMouse(TerminalEmulator.MOUSE_LEFT_BUTTON, mLastColumn, mLastRow, true);
-        sendMouse(TerminalEmulator.MOUSE_LEFT_BUTTON, mLastColumn, mLastRow, false);
+        clearSelection();
+        release();
         finish();
     }
 
     /** Stop without telling the program, for when something else ends the selection in it. */
     public void reset() {
         if (mState != State.IDLE) finish();
+    }
+
+    private void clearSelection() {
+        if (mTerminalView.mTermSession != null) mTerminalView.mTermSession.write(CLEAR_SELECTION);
     }
 
     private void release() {
@@ -338,7 +352,8 @@ public class MouseSelectionController implements CursorController {
     /** Select by characters from one end of the selection, which stays in place, to the other. */
     private void dragTo(Anchor anchor, int anchorRow, int anchorColumn, int row, int column) {
         if (mAnchor != anchor) {
-            // Pressing somewhere else first keeps the program from seeing another double click.
+            clearSelection();
+            // Pressing somewhere else first keeps Herdr from seeing another double click.
             final int columns = mTerminalView.mEmulator.mColumns;
             final int away = anchorColumn + PLAIN_PRESS_DISTANCE < columns ? anchorColumn + PLAIN_PRESS_DISTANCE : anchorColumn - PLAIN_PRESS_DISTANCE;
             sendMouse(TerminalEmulator.MOUSE_LEFT_BUTTON, clampColumn(away), anchorRow, true);

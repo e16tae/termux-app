@@ -125,6 +125,11 @@ public final class TerminalView extends View {
     /** Selects text with a finger in programs that track the mouse. */
     private MouseSelectionController mMouseSelection;
 
+    /** Closer in time than this, at the same place, programs take two clicks as a double click. */
+    private static final int DOUBLE_CLICK_MILLIS = 500;
+    private long mLastTapTime;
+    private int mLastTapColumn, mLastTapRow;
+
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
      *
@@ -182,10 +187,15 @@ public final class TerminalView extends View {
             public boolean onUp(MotionEvent event) {
                 mScrollRemainder = 0.0f;
                 if (mEmulator != null && mEmulator.isMouseTrackingActive() && !event.isFromSource(InputDevice.SOURCE_MOUSE) && !isSelectingText() && !scrolledWithFinger) {
+                    // A tap ends a selection being held, and does not also click what is under it.
+                    if (mMouseSelection != null && mMouseSelection.isHolding()) {
+                        mMouseSelection.cancel();
+                        return true;
+                    }
+                    // Two quick taps would be a double click, which selects a word and copies it.
+                    if (isRepeatedTap(event)) return true;
                     // Quick event processing when mouse tracking is active - do not wait for check of double tapping
                     // for zooming.
-                    // A selection being held ends here: this click replaces it without copying.
-                    if (mMouseSelection != null) mMouseSelection.reset();
                     sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
                     sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
                     return true;
@@ -491,8 +501,9 @@ public final class TerminalView extends View {
                         codePoint = firstChar;
                     }
 
-                    // Check onKeyDown() for details. Reading the shift key resets it.
-                    final boolean shiftDown = mClient.readShiftKey();
+                    // Check onKeyDown() for details. Reading the shift key resets it, so text ending
+                    // a composition leaves it for the key that ended it, such as Enter.
+                    final boolean shiftDown = (!mCommittingComposition || firstChar == '\n') && mClient.readShiftKey();
                     if (shiftDown)
                         codePoint = Character.toUpperCase(codePoint);
 
@@ -1032,6 +1043,16 @@ public final class TerminalView extends View {
             // If left alt, send escape before the code point to make e.g. Alt+B and Alt+F work in readline:
             mTermSession.writeCodePoint(altDown, codePoint);
         }
+    }
+
+    private boolean isRepeatedTap(MotionEvent event) {
+        final int[] columnAndRow = getColumnAndRow(event, false);
+        final boolean repeated = event.getEventTime() - mLastTapTime < DOUBLE_CLICK_MILLIS
+            && columnAndRow[1] == mLastTapRow && Math.abs(columnAndRow[0] - mLastTapColumn) <= 1;
+        mLastTapTime = event.getEventTime();
+        mLastTapColumn = columnAndRow[0];
+        mLastTapRow = columnAndRow[1];
+        return repeated;
     }
 
     /** Input is about to go to the program, which should not happen behind a held mouse button. */
