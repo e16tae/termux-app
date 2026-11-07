@@ -34,6 +34,7 @@ import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Magnifier;
 import android.widget.Scroller;
 
 import androidx.annotation.Nullable;
@@ -124,6 +125,20 @@ public final class TerminalView extends View {
     /** If a finger is dragging after a long press, which is reported to the program as a mouse drag. */
     private boolean mTouchMouseDragging;
     private int mTouchMouseDragColumn, mTouchMouseDragRow;
+    private Magnifier mTouchMouseDragMagnifier;
+
+    /** How often a held finger reports its position, see {@link #mTouchMouseDragRepeat}. */
+    private static final int TOUCH_MOUSE_DRAG_REPEAT_MILLIS = 100;
+
+    /** Programs scroll a selection on mouse events at an edge, and a held finger does not produce any. */
+    private final Runnable mTouchMouseDragRepeat = new Runnable() {
+        @Override
+        public void run() {
+            if (!mTouchMouseDragging || mEmulator == null) return;
+            mEmulator.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, mTouchMouseDragColumn + 1, mTouchMouseDragRow + 1, true);
+            postDelayed(this, TOUCH_MOUSE_DRAG_REPEAT_MILLIS);
+        }
+    };
 
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
@@ -338,7 +353,7 @@ public final class TerminalView extends View {
         mCombiningAccent = 0;
         mComposingText = null;
         clearPendingEcho();
-        mTouchMouseDragging = false;
+        stopTouchMouseDrag();
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -1028,6 +1043,9 @@ public final class TerminalView extends View {
      * Report a finger dragging after a long press as a mouse drag when the program tracks the mouse.
      * The program can then select with its own knowledge of the screen, e.g. a multiplexer that only
      * selects inside a pane, which the text selection of this view cannot do for a whole screen.
+     *
+     * The drag starts with a double click, which selects the whole word under the finger and makes
+     * the rest of the drag extend by whole words, since a finger is too coarse to hit a character.
      */
     private void startTouchMouseDrag(MotionEvent event) {
         mTouchMouseDragging = true;
@@ -1037,6 +1055,30 @@ public final class TerminalView extends View {
         // Keep the drawer from taking over a drag that gets near the screen edge.
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
         sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
+        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
+        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, true);
+        showTouchMouseDragMagnifier(event);
+        postDelayed(mTouchMouseDragRepeat, TOUCH_MOUSE_DRAG_REPEAT_MILLIS);
+    }
+
+    /** Show what is under the finger above it, including the selection the program draws there. */
+    private void showTouchMouseDragMagnifier(MotionEvent event) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
+        if (mTouchMouseDragMagnifier == null) {
+            final float density = getResources().getDisplayMetrics().density;
+            mTouchMouseDragMagnifier = new Magnifier.Builder(this)
+                .setSize((int) (240 * density), (int) (64 * density))
+                .setInitialZoom(1.5f)
+                .setDefaultSourceToMagnifierOffset(0, (int) (-96 * density))
+                .build();
+        }
+        mTouchMouseDragMagnifier.show(event.getX(), event.getY());
+    }
+
+    private void stopTouchMouseDrag() {
+        mTouchMouseDragging = false;
+        removeCallbacks(mTouchMouseDragRepeat);
+        if (mTouchMouseDragMagnifier != null) mTouchMouseDragMagnifier.dismiss();
     }
 
     private void handleTouchMouseDrag(MotionEvent event) {
@@ -1048,10 +1090,11 @@ public final class TerminalView extends View {
                     mTouchMouseDragRow = columnAndRow[1];
                     sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
                 }
+                showTouchMouseDragMagnifier(event);
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                mTouchMouseDragging = false;
+                stopTouchMouseDrag();
                 sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, false);
                 break;
         }
@@ -1734,7 +1777,7 @@ public final class TerminalView extends View {
         super.onDetachedFromWindow();
 
         clearPendingEcho();
-        mTouchMouseDragging = false;
+        stopTouchMouseDrag();
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
