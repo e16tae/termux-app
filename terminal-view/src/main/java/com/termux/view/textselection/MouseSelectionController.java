@@ -47,9 +47,6 @@ public class MouseSelectionController implements CursorController {
      */
     private static final String CLEAR_SELECTION = "\0";
 
-    /** Further than any double click tolerance of the program. */
-    private static final int PLAIN_PRESS_DISTANCE = 4;
-
     private enum State {IDLE, DRAGGING, HOLDING}
 
     private enum Anchor {NONE, START, END}
@@ -107,7 +104,10 @@ public class MouseSelectionController implements CursorController {
 
     /** Start from a long press. This also replaces a selection that is being held. */
     public void startDrag(MotionEvent event) {
-        if (mState == State.HOLDING) clearSelection();
+        if (mState == State.HOLDING) {
+            clearSelection();
+            release();
+        }
         hideHoldingUi();
         final int[] columnAndRow = mTerminalView.getColumnAndRow(event, false);
         mPressColumn = mLastColumn = clampColumn(columnAndRow[0]);
@@ -352,11 +352,9 @@ public class MouseSelectionController implements CursorController {
     /** Select by characters from one end of the selection, which stays in place, to the other. */
     private void dragTo(Anchor anchor, int anchorRow, int anchorColumn, int row, int column) {
         if (mAnchor != anchor) {
+            // Herdr does not pass on a press without a release before it.
             clearSelection();
-            // Pressing somewhere else first keeps Herdr from seeing another double click.
-            final int columns = mTerminalView.mEmulator.mColumns;
-            final int away = anchorColumn + PLAIN_PRESS_DISTANCE < columns ? anchorColumn + PLAIN_PRESS_DISTANCE : anchorColumn - PLAIN_PRESS_DISTANCE;
-            sendMouse(TerminalEmulator.MOUSE_LEFT_BUTTON, clampColumn(away), anchorRow, true);
+            release();
             sendMouse(TerminalEmulator.MOUSE_LEFT_BUTTON, anchorColumn, anchorRow, true);
             mAnchor = anchor;
         }
