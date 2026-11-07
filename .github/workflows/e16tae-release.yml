@@ -92,6 +92,11 @@ jobs:
           export TERMUX_APP_VERSION_NAME="$VERSION"
           export TERMUX_APK_VERSION_TAG="v${VERSION}-e16tae"
           export TERMUX_PACKAGE_VARIANT="apt-android-7"
+          # termux-app: the native build needs the bootstrap zips, and in release builds it can run
+          # before javaCompile (which is what downloadBootstraps hangs off), so fetch them first.
+          if grep -q 'task downloadBootstraps' app/build.gradle; then
+            ./gradlew --no-daemon downloadBootstraps
+          fi
           ./gradlew --no-daemon "$GRADLE_TASK"
           ls -la app/build/outputs/apk/release/
 
