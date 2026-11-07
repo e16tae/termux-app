@@ -107,6 +107,20 @@ public final class TerminalView extends View {
      */
     private BaseInputConnection mInputConnection;
 
+    /** Text committed from an IME composition that the remote side has not echoed back yet. */
+    private final PendingEcho mPendingEcho = new PendingEcho();
+
+    /** If input written to the terminal right now comes from an IME composition. */
+    private boolean mCommittingComposition;
+
+    /**
+     * How long committed text stays on screen waiting for its echo. Programs that do not echo at
+     * all (e.g. password prompts), or that do not move the terminal cursor, end up here.
+     */
+    private static final int PENDING_ECHO_TIMEOUT_MILLIS = 800;
+
+    private final Runnable mPendingEchoTimeout = this::clearPendingEcho;
+
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
      *
@@ -315,6 +329,7 @@ public final class TerminalView extends View {
         mEmulator = null;
         mCombiningAccent = 0;
         mComposingText = null;
+        clearPendingEcho();
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -390,7 +405,9 @@ public final class TerminalView extends View {
 
                 setComposingTextPreview(null);
                 if (hadComposing) {
+                    mCommittingComposition = true;
                     sendTextToTerminal(getEditable());
+                    mCommittingComposition = false;
                 }
                 getEditable().clear();
                 return true;
@@ -405,9 +422,11 @@ public final class TerminalView extends View {
 
                 if (mEmulator == null) return true;
 
+                mCommittingComposition = mComposingText != null;
                 setComposingTextPreview(null);
                 Editable content = getEditable();
                 sendTextToTerminal(content);
+                mCommittingComposition = false;
                 content.clear();
                 return true;
             }
@@ -983,6 +1002,8 @@ public final class TerminalView extends View {
                 }
             }
 
+            trackPendingEcho(codePoint, altDown);
+
             // If left alt, send escape before the code point to make e.g. Alt+B and Alt+F work in readline:
             mTermSession.writeCodePoint(altDown, codePoint);
         }
@@ -1000,6 +1021,8 @@ public final class TerminalView extends View {
         TerminalEmulator term = mTermSession.getEmulator();
         String code = KeyHandler.getCode(keyCode, keyMod, term.isCursorKeysApplicationMode(), term.isKeypadApplicationMode());
         if (code == null) return false;
+        // Enter, backspace, arrows etc. change the line in ways the pending text cannot predict.
+        clearPendingEcho();
         mTermSession.write(code);
         return true;
     }
@@ -1118,6 +1141,34 @@ public final class TerminalView extends View {
         }
     }
 
+    /**
+     * Track a code point about to be written to the terminal. Tracking starts with text committed
+     * from a composition, since only that text was already on screen as a preview, and then follows
+     * printable input (e.g. a space) so that it stays in order. Control input ends it.
+     */
+    private void trackPendingEcho(int codePoint, boolean altDown) {
+        if (mEmulator == null) return;
+        if (altDown || codePoint < 32 || codePoint == 127) {
+            clearPendingEcho();
+            return;
+        }
+        if (!mCommittingComposition && mPendingEcho.isEmpty()) return;
+        if (mPendingEcho.add(codePoint, mEmulator.getCursorRow(), mEmulator.getCursorCol(), mEmulator.mColumns)) {
+            removeCallbacks(mPendingEchoTimeout);
+            postDelayed(mPendingEchoTimeout, PENDING_ECHO_TIMEOUT_MILLIS);
+        } else {
+            removeCallbacks(mPendingEchoTimeout);
+        }
+        invalidate();
+    }
+
+    private void clearPendingEcho() {
+        removeCallbacks(mPendingEchoTimeout);
+        if (mPendingEcho.isEmpty()) return;
+        mPendingEcho.clear();
+        invalidate();
+    }
+
     /** Update the IME composing text preview shown at the cursor and request a redraw if it changed. */
     private void setComposingTextPreview(CharSequence text) {
         CharSequence newPreview = (text != null && text.length() > 0) ? text : null;
@@ -1167,8 +1218,28 @@ public final class TerminalView extends View {
      */
     private void drawComposingText(Canvas canvas) {
         if (mEmulator == null || mRenderer == null) return;
+
+        // A hidden cursor is usually a program in the middle of redrawing, so its position says
+        // nothing about the echo yet.
+        if (mEmulator.isCursorEnabled()) mPendingEcho.reconcile(mEmulator.getCursorRow(), mEmulator.getCursorCol());
+
         CharSequence composing = mComposingText;
-        if (composing == null || composing.length() == 0) return;
+        final boolean hasComposing = composing != null && composing.length() > 0;
+
+        int row = mEmulator.getCursorRow();
+        int column = mEmulator.getCursorCol();
+        int styleColumn = column;
+        if (!mPendingEcho.isEmpty()) {
+            final char[] pending = mPendingEcho.getText().toCharArray();
+            row = mPendingEcho.getRow();
+            column = mPendingEcho.getEndColumn();
+            styleColumn = mPendingEcho.getColumn();
+            // Covers the real cursor, which is still behind, so show one at the end if nothing else will.
+            mRenderer.renderComposingText(mEmulator, canvas, mTopRow, pending, 0, pending.length,
+                hasComposing ? -1 : pending.length, row, styleColumn, styleColumn, false);
+        }
+
+        if (!hasComposing) return;
         // Read the IME's pre-edit cursor (its Selection within the composing span of the fake
         // Editable) so in-composition cursor movement is visible (GNOME-terminal-like). Movement
         // is the IME's job; we only display it.
@@ -1183,7 +1254,8 @@ public final class TerminalView extends View {
             }
         }
         final char[] chars = composing.toString().toCharArray();
-        mRenderer.renderComposingText(mEmulator, canvas, mTopRow, chars, 0, chars.length, cursorOffsetInChars);
+        mRenderer.renderComposingText(mEmulator, canvas, mTopRow, chars, 0, chars.length, cursorOffsetInChars,
+            row, column, styleColumn, true);
     }
 
     public TerminalSession getCurrentSession() {
@@ -1612,6 +1684,8 @@ public final class TerminalView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+
+        clearPendingEcho();
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception

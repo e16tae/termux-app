@@ -267,8 +267,8 @@ public final class TerminalRenderer {
     }
 
     /**
-     * Draw the in-progress IME composing text (e.g. partially composed CJK) as a preview at the
-     * terminal cursor, on top of the already rendered terminal. It uses the same {@link #mTextPaint}
+     * Draw the in-progress IME composing text (e.g. partially composed CJK), or committed text still
+     * waiting for its echo, on top of the already rendered terminal. It uses the same {@link #mTextPaint}
      * and {@link #drawTextRun} code path as normal rendering so the font family, fallback, width
      * scaling and text style (bold/italic/colors/dim) match the on-screen text exactly.
      *
@@ -277,21 +277,25 @@ public final class TerminalRenderer {
      * @param len   number of chars to draw
      * @param cursorOffsetInChars  char offset within {@code text} of the IME pre-edit cursor,
      *                              or -1 if none / not inside the composition
+     * @param row  terminal row to draw at
+     * @param column  terminal column to draw at
+     * @param styleColumn  column on {@code row} of the cell whose style the text takes
+     * @param underline  if the text should be underlined to mark it as composing
      */
     public void renderComposingText(TerminalEmulator mEmulator, Canvas canvas, int topRow,
-                                    char[] text, int start, int len, int cursorOffsetInChars) {
+                                    char[] text, int start, int len, int cursorOffsetInChars,
+                                    int row, int column, int styleColumn, boolean underline) {
         if (mEmulator == null || len <= 0) return;
-        final int cursorRow = mEmulator.getCursorRow();
-        final int cursorCol = mEmulator.getCursorCol();
-        final int visibleRow = cursorRow - topRow;
+        final int visibleRow = row - topRow;
         if (visibleRow < 0 || visibleRow >= mEmulator.mRows) return;
+        if (column < 0 || column >= mEmulator.mColumns) return;
 
         final int[] palette = mEmulator.mColors.mCurrentColors;
         final boolean reverseVideo = mEmulator.isReverseVideo();
         // Use the style of the cell at the cursor (the style newly typed text inherits) and force
         // the underline effect so the composing state is always visually marked.
-        final long style = mEmulator.getScreen().getStyleAt(cursorRow, cursorCol)
-            | TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+        long style = mEmulator.getScreen().getStyleAt(row, styleColumn);
+        if (underline) style |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
         final int effect = TextStyle.decodeEffect(style);
 
         // Number of grid columns the composing text occupies, used for the same width-mismatch
@@ -316,7 +320,7 @@ public final class TerminalRenderer {
         if (runWidthColumns <= 0) runWidthColumns = 1;
 
         final float heightOffset = mFontLineSpacingAndAscent + (visibleRow + 1) * mFontLineSpacing;
-        final float left = cursorCol * mFontWidth;
+        final float left = column * mFontWidth;
         final float mes = mTextPaint.measureText(text, start, len);
 
         // drawTextRun() only draws a background when it is non-default, so for the common
@@ -338,7 +342,7 @@ public final class TerminalRenderer {
 
         // Draw the composing text like a normal run (same font/scaling/colors/underline), but
         // without the cursor block (cursor == 0).
-        drawTextRun(canvas, text, palette, heightOffset, cursorCol, runWidthColumns, start, len, mes,
+        drawTextRun(canvas, text, palette, heightOffset, column, runWidthColumns, start, len, mes,
             0, 0, style, reverseVideo);
 
         // Draw the IME pre-edit cursor as a thin vertical bar at the composing offset, so
