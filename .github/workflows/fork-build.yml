@@ -48,7 +48,7 @@ jobs:
           echo "upstream master commits not in main: $COUNT"
           [ "$COUNT" -gt 0 ] && [ -n "${NTFY_TOPIC:-}" ] || exit 0
           curl -fsS -H "Title: ${APP_NAME}: upstream has ${COUNT} new commit(s)" -H "Tags: arrows_counterclockwise" \
-            -d "$(git log --oneline HEAD..upstream/master | head -10)" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
+            -d "$(git log --oneline --max-count=10 HEAD..upstream/master)" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
 
   build:
     if: github.event_name == 'push'
@@ -128,7 +128,7 @@ jobs:
               --out "dist/${name}.apk" "$RUNNER_TEMP/aligned.apk"
           done
           rm -f "$KS"
-          CERT="$("$BT/apksigner" verify --print-certs "$(ls dist/*.apk | head -1)" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)"
+          CERT="$("$BT/apksigner" verify --print-certs "$(ls dist/*.apk | sed -n 1p)" | sed -n 's/.*certificate SHA-256 digest: //p' | sed -n 1p)"
           echo "CERT=$CERT" >> "$GITHUB_ENV"
           (cd dist && sha256sum *.apk > SHA256SUMS)
           ls -la dist
@@ -146,7 +146,7 @@ jobs:
               echo "\`dev\` 브랜치의 개발용 시험판입니다. \`dev\`에 push할 때마다 바뀝니다. 시험하는 경우가 아니면 최신 정식 릴리스를 쓰세요."
               echo
               echo "### Changes since ${LAST:-the first commit}"
-              git log --no-merges --format='- %s (%h)' ${LAST:+$LAST..}HEAD -- . ':!.github' | head -40
+              git log --no-merges --max-count=40 --format='- %s (%h)' ${LAST:+$LAST..}HEAD -- . ':!.github'
             fi
             echo
             echo "---"
