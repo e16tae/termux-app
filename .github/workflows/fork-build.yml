@@ -1,8 +1,8 @@
 # e16tae fork build.
 # - push to dev:            build a development APK and replace the "dev-latest" pre-release
 # - push a v*-e16tae.* tag: build that tag and publish a release with notes from CHANGELOG.md
-# - weekly schedule:        tell me (ntfy) when upstream master has commits that main lacks
-# Secrets: SIGNING_KEYSTORE_BASE64, SIGNING_KEYSTORE_PASSWORD, SIGNING_KEY_ALIAS, NTFY_TOPIC
+# - weekly schedule:        report in the run summary whether upstream master has commits that main lacks
+# Secrets: SIGNING_KEYSTORE_BASE64, SIGNING_KEYSTORE_PASSWORD, SIGNING_KEY_ALIAS
 name: Fork build
 
 on:
@@ -38,17 +38,18 @@ jobs:
           ref: main
           fetch-depth: 0
       - name: Compare with upstream master
-        env:
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: |
           set -euo pipefail
           git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
           git fetch -q upstream master
           COUNT="$(git rev-list --count HEAD..upstream/master)"
           echo "upstream master commits not in main: $COUNT"
-          [ "$COUNT" -gt 0 ] && [ -n "${NTFY_TOPIC:-}" ] || exit 0
-          curl -fsS -H "Title: ${APP_NAME}: upstream has ${COUNT} new commit(s)" -H "Tags: arrows_counterclockwise" \
-            -d "$(git log --oneline --max-count=10 HEAD..upstream/master)" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
+          {
+            echo "### Upstream ${UPSTREAM_REPO}"
+            if [ "$COUNT" -eq 0 ]; then echo "main is up to date with upstream master."; else
+              echo "${COUNT} commit(s) on upstream master are not in main yet:"; echo; echo '```'
+              git log --oneline --max-count=20 HEAD..upstream/master; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   build:
     if: github.event_name == 'push'
@@ -167,22 +168,3 @@ jobs:
             gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
               --title "${APP_NAME} development build" --notes-file "$RUNNER_TEMP/notes.md"
           fi
-
-      - name: Notify (success)
-        if: success()
-        env:
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: |
-          [ -n "${NTFY_TOPIC:-}" ] || exit 0
-          if [ "$CHANNEL" = stable ]; then title="${APP_NAME} ${TAG} released"; else title="${APP_NAME} dev build ready"; fi
-          curl -fsS -H "Title: ${title}" -H "Tags: package" -d "${VERSION}" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
-
-      - name: Notify (failure)
-        if: failure()
-        env:
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: |
-          [ -n "${NTFY_TOPIC:-}" ] || exit 0
-          curl -fsS -H "Title: ${APP_NAME} build FAILED" -H "Priority: high" -H "Tags: warning" \
-            -d "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
