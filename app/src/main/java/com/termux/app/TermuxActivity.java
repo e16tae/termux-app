@@ -596,10 +596,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TextView updateButton = findViewById(R.id.e16tae_update_button);
         AppUpdater updater = AppUpdater.get(this);
         updateButton.setOnClickListener(v -> updater.onButtonClicked());
+        updateButton.setOnLongClickListener(v -> { updater.onButtonLongClicked(); return true; });
         mUpdateListener = (state, latestTag, progress) -> {
             switch (state) {
                 case CHECKING: updateButton.setText(R.string.e16tae_update_checking); break;
-                case UP_TO_DATE: updateButton.setText(getString(R.string.e16tae_update_latest, updater.installedLabel())); break;
+                case UP_TO_DATE: updateButton.setText(latestTag == null ? getString(R.string.e16tae_update_no_release) : getString(R.string.e16tae_update_latest, updater.installedLabel())); break;
                 case AVAILABLE: updateButton.setText(getString(R.string.e16tae_update_install, AppUpdater.shortTag(latestTag))); break;
                 case DOWNLOADING: updateButton.setText(getString(R.string.e16tae_update_downloading, progress)); break;
                 case INSTALLING: updateButton.setText(R.string.e16tae_update_installing); break;

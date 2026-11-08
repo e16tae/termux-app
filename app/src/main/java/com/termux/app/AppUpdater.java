@@ -47,12 +47,14 @@ public final class AppUpdater {
 
     private static final String LOG_TAG = "AppUpdater";
     private static final String RELEASES_API = "https://api.github.com/repos/e16tae/termux-app/releases/latest";
+    private static final String DEV_RELEASE_API = "https://api.github.com/repos/e16tae/termux-app/releases/tags/dev-latest";
     private static final long AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L;
     private static final String ACTION_INSTALL_RESULT = "com.termux.app.e16tae.INSTALL_RESULT";
     // Release builds are "<upstream>+e16tae.<n>", dev builds "<upstream>+e16tae.<n>.dev.<run>.<sha>"
     // where n is the last release. Builds from before releases were numbered this way
     // ("+e16tae.<run>.<sha>") do not match and count as 0.
     private static final Pattern INSTALLED_BUILD = Pattern.compile("\\+e16tae\\.(\\d+)(\\.dev\\..+)?$");
+    private static final Pattern INSTALLED_DEV_SHA = Pattern.compile("\\.dev\\.\\d+\\.([0-9a-f]{7,})$");
     private static final Pattern RELEASE_BUILD = Pattern.compile("^v\\d+\\.\\d+\\.\\d+-e16tae\\.(\\d+)$");
 
     private static AppUpdater sInstance;
@@ -67,6 +69,36 @@ public final class AppUpdater {
     private String mSumsUrl;
     private int mProgress;
     private long mLastCheck;
+    /** The state to go back to when a download or install fails or is cancelled. */
+    private State mStateAfterFailure = State.AVAILABLE;
+
+    /** The APK and checksum assets of a release. */
+    private static final class Assets {
+        String apkUrl, apkName, sumsUrl;
+
+        static Assets of(JSONObject release) throws Exception {
+            Assets a = new Assets();
+            JSONArray assets = release.getJSONArray("assets");
+            for (int i = 0; i < assets.length(); i++) {
+                JSONObject asset = assets.getJSONObject(i);
+                String name = asset.getString("name");
+                String url = asset.getString("browser_download_url");
+                if (name.equals("SHA256SUMS")) a.sumsUrl = url;
+                else if (name.endsWith("_universal.apk")) { a.apkUrl = url; a.apkName = name; }
+            }
+            return a.apkUrl != null && a.sumsUrl != null ? a : null;
+        }
+    }
+
+    /** A non-200 HTTP response. */
+    private static final class HttpStatusException extends IOException {
+        final int code;
+
+        HttpStatusException(int code, String url) {
+            super("HTTP " + code + " for " + url);
+            this.code = code;
+        }
+    }
 
     public static synchronized AppUpdater get(Context context) {
         if (sInstance == null) sInstance = new AppUpdater(context.getApplicationContext());
@@ -94,11 +126,45 @@ public final class AppUpdater {
             case INSTALLING:
                 return;
             case AVAILABLE:
-                downloadAndInstall();
+                mStateAfterFailure = State.AVAILABLE;
+                downloadAndInstall(mApkUrl, mApkName, mSumsUrl);
                 return;
             default:
                 check(true);
         }
+    }
+
+    /** Long press: install the dev-latest pre-release, for testing. */
+    public void onButtonLongClicked() {
+        if (mState == State.CHECKING || mState == State.DOWNLOADING || mState == State.INSTALLING) return;
+        final State before = mState;
+        setState(State.CHECKING, 0);
+        new Thread(() -> {
+            try {
+                JSONObject release = new JSONObject(readUrl(DEV_RELEASE_API));
+                String commit = release.optString("target_commitish", "");
+                Assets assets = Assets.of(release);
+                if (assets == null) throw new IOException("No APK in dev-latest");
+                Matcher m = INSTALLED_DEV_SHA.matcher(BuildConfig.VERSION_NAME);
+                boolean installed = m.find() && commit.startsWith(m.group(1));
+                mMainHandler.post(() -> {
+                    if (installed) {
+                        setState(before, 0);
+                        toast(mContext.getString(R.string.e16tae_update_dev_installed));
+                        return;
+                    }
+                    toast(mContext.getString(R.string.e16tae_update_dev_downloading));
+                    mStateAfterFailure = before;
+                    downloadAndInstall(assets.apkUrl, assets.apkName, assets.sumsUrl);
+                });
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Dev build check failed", e);
+                mMainHandler.post(() -> {
+                    setState(before, 0);
+                    toast(mContext.getString(R.string.e16tae_update_check_failed));
+                });
+            }
+        }).start();
     }
 
     /** Checks silently unless a check succeeded in the last few hours. */
@@ -115,17 +181,11 @@ public final class AppUpdater {
             try {
                 JSONObject release = new JSONObject(readUrl(RELEASES_API));
                 String tag = release.getString("tag_name");
-                String apkUrl = null, apkName = null, sumsUrl = null;
-                JSONArray assets = release.getJSONArray("assets");
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject asset = assets.getJSONObject(i);
-                    String name = asset.getString("name");
-                    String url = asset.getString("browser_download_url");
-                    if (name.equals("SHA256SUMS")) sumsUrl = url;
-                    else if (name.endsWith("_universal.apk")) { apkUrl = url; apkName = name; }
-                }
-                final String fApkUrl = apkUrl, fApkName = apkName, fSumsUrl = sumsUrl;
-                final boolean newer = releaseNumber(tag) > installedNumber() && apkUrl != null && sumsUrl != null;
+                Assets assets = Assets.of(release);
+                final String fApkUrl = assets != null ? assets.apkUrl : null;
+                final String fApkName = assets != null ? assets.apkName : null;
+                final String fSumsUrl = assets != null ? assets.sumsUrl : null;
+                final boolean newer = releaseNumber(tag) > installedNumber() && assets != null;
                 mMainHandler.post(() -> {
                     mLastCheck = System.currentTimeMillis();
                     mLatestTag = tag;
@@ -140,18 +200,30 @@ public final class AppUpdater {
                         if (userRequested) toast(mContext.getString(R.string.e16tae_update_latest_toast, installedLabel()));
                     }
                 });
-            } catch (Exception e) {
-                Logger.logStackTraceWithMessage(LOG_TAG, "Update check failed", e);
+            } catch (HttpStatusException e) {
+                if (e.code != HttpURLConnection.HTTP_NOT_FOUND) { checkFailed(e, userRequested); return; }
+                // No release has been published yet.
                 mMainHandler.post(() -> {
-                    setState(State.FAILED, 0);
-                    if (userRequested) toast(mContext.getString(R.string.e16tae_update_check_failed));
+                    mLastCheck = System.currentTimeMillis();
+                    mLatestTag = null;
+                    setState(State.UP_TO_DATE, 0);
+                    if (userRequested) toast(mContext.getString(R.string.e16tae_update_no_release_toast));
                 });
+            } catch (Exception e) {
+                checkFailed(e, userRequested);
             }
         }).start();
     }
 
-    private void downloadAndInstall() {
-        final String apkUrl = mApkUrl, apkName = mApkName, sumsUrl = mSumsUrl;
+    private void checkFailed(Exception e, boolean userRequested) {
+        Logger.logStackTraceWithMessage(LOG_TAG, "Update check failed", e);
+        mMainHandler.post(() -> {
+            setState(State.FAILED, 0);
+            if (userRequested) toast(mContext.getString(R.string.e16tae_update_check_failed));
+        });
+    }
+
+    private void downloadAndInstall(String apkUrl, String apkName, String sumsUrl) {
         setState(State.DOWNLOADING, 0);
         new Thread(() -> {
             File dir = new File(mContext.getCacheDir(), "e16tae-update");
@@ -169,7 +241,7 @@ public final class AppUpdater {
                 //noinspection ResultOfMethodCallIgnored
                 apk.delete();
                 mMainHandler.post(() -> {
-                    setState(State.AVAILABLE, 0);
+                    setState(mStateAfterFailure, 0);
                     toast(mContext.getString(R.string.e16tae_update_install_failed, String.valueOf(e.getMessage())));
                 });
             }
@@ -208,7 +280,7 @@ public final class AppUpdater {
                 mContext.startActivity(confirmIntent);
             } catch (Exception e) {
                 Logger.logStackTraceWithMessage(LOG_TAG, "Cannot open install confirmation", e);
-                setState(State.AVAILABLE, 0);
+                setState(mStateAfterFailure, 0);
                 toast(mContext.getString(R.string.e16tae_update_install_failed, String.valueOf(e.getMessage())));
             }
             return;
@@ -219,7 +291,7 @@ public final class AppUpdater {
             return;
         }
         // Cancelled on the confirmation screen, or failed: allow trying again.
-        setState(State.AVAILABLE, 0);
+        setState(mStateAfterFailure, 0);
         if (status != PackageInstaller.STATUS_FAILURE_ABORTED)
             toast(mContext.getString(R.string.e16tae_update_install_failed, String.valueOf(message)));
     }
@@ -285,7 +357,7 @@ public final class AppUpdater {
         int code = connection.getResponseCode();
         if (code != HttpURLConnection.HTTP_OK) {
             connection.disconnect();
-            throw new IOException("HTTP " + code + " for " + url);
+            throw new HttpStatusException(code, url);
         }
         return connection;
     }

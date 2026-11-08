@@ -251,5 +251,9 @@
     <string name="e16tae_update_available_toast">새 버전(%1$s)이 나왔습니다. 왼쪽 패널에서 설치하세요.</string>
     <string name="e16tae_update_latest_toast">최신 버전입니다 (%1$s)</string>
     <string name="e16tae_update_check_failed">업데이트를 확인하지 못했습니다. 네트워크를 확인해 주세요.</string>
+    <string name="e16tae_update_no_release">정식 릴리스 없음</string>
+    <string name="e16tae_update_no_release_toast">아직 정식 릴리스가 없습니다.</string>
+    <string name="e16tae_update_dev_downloading">dev 시험판을 받습니다.</string>
+    <string name="e16tae_update_dev_installed">이미 최신 dev 시험판입니다.</string>
     <string name="e16tae_update_install_failed">업데이트하지 못했습니다: %1$s</string>
 </resources>
