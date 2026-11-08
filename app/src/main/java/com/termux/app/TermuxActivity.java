@@ -601,8 +601,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             getDrawer().closeDrawers();
             mTerminalView.showContextMenu();
         });
-        findViewById(R.id.e16tae_reconnect_button).setOnClickListener(v ->
-            mTermuxTerminalSessionActivityClient.reconnectSession());
     }
 
     private void setUpdateButtonView() {

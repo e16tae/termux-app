@@ -244,6 +244,5 @@
     <string name="e16tae_update_dev_downloading">dev 시험판을 받습니다.</string>
     <string name="e16tae_update_dev_installed">이미 최신 dev 시험판입니다.</string>
     <string name="e16tae_update_install_failed">업데이트하지 못했습니다: %1$s</string>
-    <string name="e16tae_reconnect">다시 연결</string>
     <string name="e16tae_more_menu">메뉴</string>
 </resources>

@@ -256,6 +256,5 @@
     <string name="e16tae_update_dev_downloading">Downloading the dev build.</string>
     <string name="e16tae_update_dev_installed">The latest dev build is already installed.</string>
     <string name="e16tae_update_install_failed">Update failed: %1$s</string>
-    <string name="e16tae_reconnect">Reconnect</string>
     <string name="e16tae_more_menu">Menu</string>
 </resources>
