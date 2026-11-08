@@ -289,6 +289,16 @@ public final class TerminalSession extends TerminalOutput {
         mClient.onColorsChanged(this);
     }
 
+    @Override
+    public void onDesktopNotification(TerminalNotification notification) {
+        mClient.onDesktopNotification(this, notification);
+    }
+
+    @Override
+    public void onDesktopNotificationClosed(String id) {
+        mClient.onDesktopNotificationClosed(this, id);
+    }
+
     public int getPid() {
         return mShellPid;
     }

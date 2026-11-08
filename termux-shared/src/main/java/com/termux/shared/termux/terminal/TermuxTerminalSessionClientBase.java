@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.shared.logger.Logger;
+import com.termux.terminal.TerminalNotification;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 
@@ -38,6 +39,14 @@ public class TermuxTerminalSessionClientBase implements TerminalSessionClient {
 
     @Override
     public void onColorsChanged(@NonNull TerminalSession changedSession) {
+    }
+
+    @Override
+    public void onDesktopNotification(@NonNull TerminalSession session, @NonNull TerminalNotification notification) {
+    }
+
+    @Override
+    public void onDesktopNotificationClosed(@NonNull TerminalSession session, @NonNull String id) {
     }
 
     @Override

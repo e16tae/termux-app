@@ -200,7 +200,7 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE = 1 << 6;
     /** DECSET 1002 - like 1000, but report moving mouse while pressed. */
     private static final int DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT = 1 << 7;
-    /** DECSET 1004 - NOT implemented. */
+    /** DECSET 1004 - report focus changes, see {@link #reportFocusChange(boolean)}. */
     private static final int DECSET_BIT_SEND_FOCUS_EVENTS = 1 << 8;
     /** DECSET 1006 - SGR-like mouse protocol (the modern sane choice). */
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR = 1 << 9;
@@ -256,6 +256,9 @@ public final class TerminalEmulator {
 
     /** The terminal session this emulator is bound to. */
     private final TerminalOutput mSession;
+
+    /** Desktop notifications requested with OSC 9, 99 and 777. */
+    private final DesktopNotifications mDesktopNotifications;
 
     TerminalSessionClient mClient;
 
@@ -495,6 +498,7 @@ public final class TerminalEmulator {
 
     public TerminalEmulator(TerminalOutput session, int columns, int rows, int cellWidthPixels, int cellHeightPixels, Integer transcriptRows, TerminalSessionClient client) {
         mSession = session;
+        mDesktopNotifications = new DesktopNotifications(session);
         mScreen = mMainBuffer = new TerminalBuffer(client, columns, getTerminalTranscriptRows(transcriptRows), rows);
         mAltBuffer = new TerminalBuffer(client, columns, rows, rows);
         mClient = client;
@@ -2847,6 +2851,15 @@ public final class TerminalEmulator {
                     }
                 }
                 break;
+            case 9: // Desktop notification (iTerm2).
+                mDesktopNotifications.onOsc9(textParameter);
+                break;
+            case 99: // Desktop notification (kitty).
+                mDesktopNotifications.onOsc99(textParameter);
+                break;
+            case 777: // Desktop notification (rxvt "notify").
+                mDesktopNotifications.onOsc777(textParameter);
+                break;
             case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
                 int startIndex = textParameter.indexOf(";") + 1;
                 try {
@@ -3538,6 +3551,14 @@ public final class TerminalEmulator {
     }
 
     /** If DECSET 2004 is set, prefix paste with "\033[200~" and suffix with "\033[201~". */
+    /**
+     * Tells the program that the terminal gained or lost focus, if it asked for that with DECSET 1004.
+     * Call it when the terminal is shown or hidden, or another session takes its place.
+     */
+    public void reportFocusChange(boolean focused) {
+        if (isDecsetInternalBitSet(DECSET_BIT_SEND_FOCUS_EVENTS)) mSession.write(focused ? "\033[I" : "\033[O");
+    }
+
     public void paste(String text) {
         // First: Always remove escape key and C1 control characters [0x80,0x9F]:
         text = text.replaceAll("(\u001B|[\u0080-\u009F])", "");

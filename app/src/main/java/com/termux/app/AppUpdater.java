@@ -1,5 +1,6 @@
 package com.termux.app;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -39,7 +40,8 @@ import java.util.regex.Pattern;
  */
 public final class AppUpdater {
 
-    public enum State { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, INSTALLING, FAILED }
+    /** CONFIRMING: waiting for the user on Android's install confirmation screen. */
+    public enum State { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, INSTALLING, CONFIRMING, FAILED }
 
     public interface Listener {
         void onUpdateStateChanged(State state, String latestTag, int progressPercent);
@@ -62,6 +64,10 @@ public final class AppUpdater {
     private final Context mContext;
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
     private Listener mListener;
+    /** The activity showing the button, to open the confirmation screen from. */
+    private Activity mHost;
+    /** Android's install confirmation screen, while {@link State#CONFIRMING}. */
+    private Intent mConfirmIntent;
     private State mState = State.IDLE;
     private String mLatestTag;
     private String mApkUrl;
@@ -109,13 +115,17 @@ public final class AppUpdater {
         mContext = context;
     }
 
-    public void setListener(Listener listener) {
+    public void setListener(Activity host, Listener listener) {
+        mHost = host;
         mListener = listener;
         if (listener != null) listener.onUpdateStateChanged(mState, mLatestTag, mProgress);
     }
 
     public void clearListener(Listener listener) {
-        if (mListener == listener) mListener = null;
+        if (mListener == listener) {
+            mListener = null;
+            mHost = null;
+        }
     }
 
     /** The button action: check, or download and install when a newer release is known. */
@@ -123,7 +133,14 @@ public final class AppUpdater {
         switch (mState) {
             case CHECKING:
             case DOWNLOADING:
+                return;
             case INSTALLING:
+                // The installer has not answered; let the user start over.
+                setState(mStateAfterFailure, 0);
+                return;
+            case CONFIRMING:
+                // The confirmation screen did not open, or was left: open it again.
+                openConfirmation();
                 return;
             case AVAILABLE:
                 mStateAfterFailure = State.AVAILABLE;
@@ -136,7 +153,7 @@ public final class AppUpdater {
 
     /** Long press: install the dev-latest pre-release, for testing. */
     public void onButtonLongClicked() {
-        if (mState == State.CHECKING || mState == State.DOWNLOADING || mState == State.INSTALLING) return;
+        if (mState == State.CHECKING || mState == State.DOWNLOADING || mState == State.INSTALLING || mState == State.CONFIRMING) return;
         final State before = mState;
         setState(State.CHECKING, 0);
         new Thread(() -> {
@@ -169,7 +186,7 @@ public final class AppUpdater {
 
     /** Checks silently unless a check succeeded in the last few hours. */
     public void checkIfStale() {
-        if (mState == State.CHECKING || mState == State.DOWNLOADING || mState == State.INSTALLING) return;
+        if (mState == State.CHECKING || mState == State.DOWNLOADING || mState == State.INSTALLING || mState == State.CONFIRMING) return;
         if ((mState == State.UP_TO_DATE || mState == State.AVAILABLE)
             && System.currentTimeMillis() - mLastCheck < AUTO_CHECK_INTERVAL_MS) return;
         check(false);
@@ -275,16 +292,12 @@ public final class AppUpdater {
 
     void onInstallResult(int status, String message, Intent confirmIntent) {
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION && confirmIntent != null) {
-            confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                mContext.startActivity(confirmIntent);
-            } catch (Exception e) {
-                Logger.logStackTraceWithMessage(LOG_TAG, "Cannot open install confirmation", e);
-                setState(mStateAfterFailure, 0);
-                toast(mContext.getString(R.string.e16tae_update_install_failed, String.valueOf(e.getMessage())));
-            }
+            mConfirmIntent = confirmIntent;
+            setState(State.CONFIRMING, 100);
+            openConfirmation();
             return;
         }
+        mConfirmIntent = null;
         new File(new File(mContext.getCacheDir(), "e16tae-update"), "update.apk").delete();
         if (status == PackageInstaller.STATUS_SUCCESS) {
             setState(State.UP_TO_DATE, 0);
@@ -294,6 +307,28 @@ public final class AppUpdater {
         setState(mStateAfterFailure, 0);
         if (status != PackageInstaller.STATUS_FAILURE_ABORTED)
             toast(mContext.getString(R.string.e16tae_update_install_failed, String.valueOf(message)));
+    }
+
+    /**
+     * Opens Android's install confirmation screen. From the activity if there is one, since Android
+     * may not let the app open it from the background, e.g. from the install result broadcast.
+     */
+    private void openConfirmation() {
+        if (mConfirmIntent == null) {
+            setState(mStateAfterFailure, 0);
+            return;
+        }
+        Context context = mHost != null && !mHost.isFinishing() ? mHost : mContext;
+        Intent intent = new Intent(mConfirmIntent);
+        if (!(context instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(intent);
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Cannot open install confirmation", e);
+            mConfirmIntent = null;
+            setState(mStateAfterFailure, 0);
+            toast(mContext.getString(R.string.e16tae_update_install_failed, String.valueOf(e.getMessage())));
+        }
     }
 
     public static final class InstallResultReceiver extends BroadcastReceiver {

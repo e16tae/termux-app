@@ -5,8 +5,10 @@ import android.app.Service;
 import androidx.annotation.NonNull;
 
 import com.termux.app.TermuxService;
+import com.termux.app.TerminalNotifier;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
+import com.termux.terminal.TerminalNotification;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 
@@ -19,6 +21,16 @@ public class TermuxTerminalSessionServiceClient extends TermuxTerminalSessionCli
 
     public TermuxTerminalSessionServiceClient(TermuxService service) {
         this.mService = service;
+    }
+
+    @Override
+    public void onDesktopNotification(@NonNull TerminalSession session, @NonNull TerminalNotification notification) {
+        TerminalNotifier.show(mService, session, notification, false);
+    }
+
+    @Override
+    public void onDesktopNotificationClosed(@NonNull TerminalSession session, @NonNull String id) {
+        TerminalNotifier.close(mService, session, id);
     }
 
     @Override

@@ -247,6 +247,8 @@
     <string name="e16tae_update_install">Install %1$s</string>
     <string name="e16tae_update_downloading">Downloading %1$d%%</string>
     <string name="e16tae_update_installing">Opening installer…</string>
+    <string name="e16tae_update_confirm">Tap to open the installer</string>
+    <string name="e16tae_notification_channel">Terminal notifications</string>
     <string name="e16tae_update_retry">Check failed · retry</string>
     <string name="e16tae_update_available_toast">%1$s is available. Install it from the drawer.</string>
     <string name="e16tae_update_latest_toast">You have the latest version (%1$s).</string>

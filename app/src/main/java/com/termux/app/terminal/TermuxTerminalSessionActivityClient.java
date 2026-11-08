@@ -21,6 +21,7 @@ import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.app.TermuxActivity;
+import com.termux.app.TerminalNotifier;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.app.TermuxService;
@@ -28,6 +29,7 @@ import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import com.termux.shared.termux.terminal.io.BellHandler;
 import com.termux.shared.logger.Logger;
 import com.termux.terminal.TerminalColors;
+import com.termux.terminal.TerminalNotification;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.terminal.TextStyle;
@@ -201,6 +203,17 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
     @Override
+    public void onDesktopNotification(@NonNull TerminalSession session, @NonNull TerminalNotification notification) {
+        boolean focused = mActivity.isVisible() && mActivity.getCurrentSession() == session;
+        TerminalNotifier.show(mActivity, session, notification, focused);
+    }
+
+    @Override
+    public void onDesktopNotificationClosed(@NonNull TerminalSession session, @NonNull String id) {
+        TerminalNotifier.close(mActivity, session, id);
+    }
+
+    @Override
     public void onBell(@NonNull TerminalSession session) {
         if (!mActivity.isVisible()) return;
 
@@ -297,15 +310,26 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void setCurrentSession(TerminalSession session) {
         if (session == null) return;
 
+        TerminalSession previous = mActivity.getCurrentSession();
         if (mActivity.getTerminalView().attachSession(session)) {
             // notify about switched session if not already displaying the session
             notifyOfSessionChange();
+            if (mActivity.isVisible()) {
+                reportFocusChange(previous, false);
+                reportFocusChange(session, true);
+            }
         }
 
         // We call the following even when the session is already being displayed since config may
         // be stale, like current session not selected or scrolled to.
         checkAndScrollToSession(session);
         updateBackgroundColor();
+    }
+
+    /** Tells the program in the session that it gained or lost focus, if it asked for that. */
+    public static void reportFocusChange(@Nullable TerminalSession session, boolean focused) {
+        if (session == null || session.getEmulator() == null) return;
+        session.getEmulator().reportFocusChange(focused);
     }
 
     void notifyOfSessionChange() {

@@ -24,6 +24,10 @@ public interface TerminalSessionClient {
 
     void onColorsChanged(@NonNull TerminalSession session);
 
+    void onDesktopNotification(@NonNull TerminalSession session, @NonNull TerminalNotification notification);
+
+    void onDesktopNotificationClosed(@NonNull TerminalSession session, @NonNull String id);
+
     void onTerminalCursorStateChange(boolean state);
 
     void setTerminalShellPid(@NonNull TerminalSession session, int pid);

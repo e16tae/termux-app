@@ -57,6 +57,19 @@ public abstract class TerminalTestCase extends TestCase {
 		public void onColorsChanged() {
 			colorsChanged++;
 		}
+
+		public final List<TerminalNotification> notifications = new ArrayList<>();
+		public final List<String> closedNotifications = new ArrayList<>();
+
+		@Override
+		public void onDesktopNotification(TerminalNotification notification) {
+			notifications.add(notification);
+		}
+
+		@Override
+		public void onDesktopNotificationClosed(String id) {
+			closedNotifications.add(id);
+		}
 	}
 
 	public TerminalEmulator mTerminal;

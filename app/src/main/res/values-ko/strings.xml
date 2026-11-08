@@ -235,6 +235,8 @@
     <string name="e16tae_update_install">새 버전 설치 (%1$s)</string>
     <string name="e16tae_update_downloading">받는 중 %1$d%%</string>
     <string name="e16tae_update_installing">설치 화면 여는 중…</string>
+    <string name="e16tae_update_confirm">눌러서 설치 화면 열기</string>
+    <string name="e16tae_notification_channel">터미널 알림</string>
     <string name="e16tae_update_retry">확인 실패 · 다시 시도</string>
     <string name="e16tae_update_available_toast">새 버전(%1$s)이 나왔습니다. 왼쪽 패널에서 설치하세요.</string>
     <string name="e16tae_update_latest_toast">최신 버전입니다 (%1$s)</string>

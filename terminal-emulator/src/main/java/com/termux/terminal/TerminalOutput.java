@@ -29,4 +29,12 @@ public abstract class TerminalOutput {
 
     public abstract void onColorsChanged();
 
+    /** Notify the terminal client that a program asked for a desktop notification (OSC 9, 99 or 777). */
+    public void onDesktopNotification(TerminalNotification notification) {
+    }
+
+    /** Notify the terminal client that a program closed the desktop notification with the given id (OSC 99). */
+    public void onDesktopNotificationClosed(String id) {
+    }
+
 }

@@ -6,6 +6,18 @@ Each release is tagged `v<upstream version>-e16tae.<n>`.
 이 포크가 [termux/termux-app](https://github.com/termux/termux-app) 위에 더한 변경 사항입니다.
 릴리스 태그는 `v<원본 버전>-e16tae.<번호>` 형식입니다.
 
+## Unreleased
+
+### English
+- **Desktop notifications:** programs can show Android notifications with the escape sequences OSC 9 (iTerm2), OSC 777 (`notify`) and OSC 99 (kitty, including chunked titles and bodies, `i=`, `a=report`, `o=`, `u=`, `p=?` and `p=close`). Tapping one opens its session.
+- **Focus reporting** (DECSET 1004): programs that ask for it are told when the session is shown or hidden, e.g. when the app goes to the background or another session is selected.
+- **Update button:** if Android's install screen does not open, or is left, tapping the button opens it again; if the installer does not answer, tapping starts over.
+
+### 한국어
+- **데스크톱 알림:** 프로그램이 이스케이프 시퀀스 OSC 9(iTerm2), OSC 777(`notify`), OSC 99(kitty: 제목·본문 나눠 보내기, `i=`, `a=report`, `o=`, `u=`, `p=?`, `p=close`)로 Android 알림을 띄울 수 있습니다. 알림을 누르면 그 세션이 열립니다.
+- **포커스 보고**(DECSET 1004): 요청한 프로그램에 세션이 보이거나 가려질 때(앱이 백그라운드로 가거나 다른 세션을 고를 때)를 알려 줍니다.
+- **업데이트 버튼:** Android 설치 화면이 열리지 않았거나 닫혔으면 버튼을 눌러 다시 엽니다. 설치 관리자가 응답하지 않으면 눌러서 처음부터 다시 시작합니다.
+
 ## v0.118.0-e16tae.1 (2026-11-08)
 
 ### English

@@ -301,6 +301,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onStart();
+        TermuxTerminalSessionActivityClient.reportFocusChange(getCurrentSession(), true);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onStart();
@@ -346,6 +347,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onStop();
+        TermuxTerminalSessionActivityClient.reportFocusChange(getCurrentSession(), false);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onStop();
@@ -436,11 +438,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mTermuxTerminalSessionActivityClient.addNewSession(isFailSafe, null);
             } else {
                 mTermuxTerminalSessionActivityClient.setCurrentSession(mTermuxTerminalSessionActivityClient.getCurrentStoredSessionOrLast());
+                TerminalNotifier.onActivated(intent, this);
             }
         }
 
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // A tapped terminal notification, while the activity exists (it is singleTask).
+        TerminalNotifier.onActivated(intent, this);
     }
 
     @Override
@@ -617,12 +627,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 case AVAILABLE: updateButton.setText(getString(R.string.e16tae_update_install, AppUpdater.shortTag(latestTag))); break;
                 case DOWNLOADING: updateButton.setText(getString(R.string.e16tae_update_downloading, progress)); break;
                 case INSTALLING: updateButton.setText(R.string.e16tae_update_installing); break;
+                case CONFIRMING: updateButton.setText(R.string.e16tae_update_confirm); break;
                 case FAILED: updateButton.setText(R.string.e16tae_update_retry); break;
                 default: updateButton.setText(R.string.e16tae_update_check);
             }
             updateButton.setTypeface(null, state == AppUpdater.State.AVAILABLE ? Typeface.BOLD : Typeface.NORMAL);
         };
-        updater.setListener(mUpdateListener);
+        updater.setListener(this, mUpdateListener);
         getDrawer().addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
             @Override
             public void onDrawerOpened(View drawerView) {
