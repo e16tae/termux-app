@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE resources [
+    <!ENTITY TERMUX_PACKAGE_NAME "com.termux">
+    <!ENTITY TERMUX_APP_NAME "Termux">
+    <!ENTITY TERMUX_API_APP_NAME "Termux:API">
+    <!ENTITY TERMUX_BOOT_APP_NAME "Termux:Boot">
+    <!ENTITY TERMUX_FLOAT_APP_NAME "Termux:Float">
+    <!ENTITY TERMUX_STYLING_APP_NAME "Termux:Styling">
+    <!ENTITY TERMUX_TASKER_APP_NAME "Termux:Tasker">
+    <!ENTITY TERMUX_WIDGET_APP_NAME "Termux:Widget">
+    ]>
+
+<resources>
+
+    <string name="shared_user_label">&TERMUX_APP_NAME; 사용자</string>
+
+
+
+    <!-- Termux RUN_COMMAND permission -->
+    <string name="permission_run_command_label">&TERMUX_APP_NAME; 환경에서 명령 실행</string>
+    <string name="permission_run_command_description">&TERMUX_APP_NAME; 환경에서 임의의 명령을 실행하고 파일에 접근합니다</string>
+
+
+
+    <!-- Termux Bootstrap Packages Installation -->
+    <string name="bootstrap_installer_body">부트스트랩 패키지 설치 중…</string>
+    <string name="bootstrap_error_title">부트스트랩을 설치할 수 없음</string>
+    <string name="bootstrap_error_body">&TERMUX_APP_NAME;이 부트스트랩 패키지를 설치하지 못했습니다.</string>
+    <string name="bootstrap_error_abort">중단</string>
+    <string name="bootstrap_error_try_again">다시 시도</string>
+    <string name="bootstrap_error_not_primary_user_message">&TERMUX_APP_NAME;은 기본 사용자로만 실행할 수 있습니다.
+        \n&TERMUX_APP_NAME;용으로 컴파일된 부트스트랩 바이너리는 $PREFIX 경로가 고정되어 있어 다음 경로 외에는 설치할 수 없습니다:\n%1$s.</string>
+    <string name="bootstrap_error_installed_on_portable_sd">&TERMUX_APP_NAME;은 기기의 휴대용/외장/이동식 SD 카드에 설치할 수 없습니다.
+        \n&TERMUX_APP_NAME;용으로 컴파일된 부트스트랩 바이너리는 $PREFIX 경로가 고정되어 있어 다음 경로 외에는 설치할 수 없습니다:\n%1$s.</string>
+
+
+
+    <!-- Terminal Sidebar and Shortcuts -->
+    <string name="action_new_session">새 세션</string>
+    <string name="action_new_session_failsafe">안전 모드</string>
+    <string name="title_max_terminals_reached">터미널 최대 개수 도달</string>
+    <string name="msg_max_terminals_reached">새로 만들기 전에 기존 터미널을 닫으세요.</string>
+
+    <string name="title_rename_session">세션 이름 설정</string>
+    <string name="action_rename_session_confirm">설정</string>
+    <string name="title_create_named_session">이름 있는 새 세션</string>
+    <string name="action_create_named_session_confirm">만들기</string>
+
+    <string name="action_toggle_soft_keyboard">키보드</string>
+
+    <string name="msg_enabling_terminal_toolbar">터미널 툴바를 켭니다</string>
+    <string name="msg_disabling_terminal_toolbar">터미널 툴바를 끕니다</string>
+
+
+
+    <!-- Terminal Popup -->
+    <string name="action_select_url">URL 선택</string>
+    <string name="title_select_url_dialog">눌러서 URL 복사, 길게 눌러서 열기</string>
+    <string name="title_select_url_none_found">터미널에서 URL을 찾지 못했습니다.</string>
+    <string name="msg_select_url_copied_to_clipboard">URL을 클립보드에 복사했습니다</string>
+
+    <string name="action_share_transcript">출력 내용 공유</string>
+    <string name="title_share_transcript">터미널 출력 내용</string>
+    <string name="title_share_transcript_with">출력 내용 보내기:</string>
+
+    <string name="action_share_selected_text">선택한 텍스트 공유</string>
+    <string name="title_share_selected_text">터미널 텍스트</string>
+    <string name="title_share_selected_text_with">선택한 텍스트 보내기:</string>
+
+    <string name="action_autofill_username">사용자 이름 자동 입력</string>
+    <string name="action_autofill_password">비밀번호 자동 입력</string>
+
+    <string name="action_reset_terminal">터미널 초기화</string>
+    <string name="msg_terminal_reset">터미널을 초기화했습니다</string>
+
+    <string name="action_kill_process">프로세스 종료 (%d)</string>
+    <string name="title_confirm_kill_process">이 세션을 종료할까요?</string>
+
+    <string name="action_style_terminal">스타일</string>
+    <string name="action_toggle_keep_screen_on">화면 켜짐 유지</string>
+    <string name="action_open_help">도움말</string>
+    <string name="action_open_settings">설정</string>
+
+    <string name="action_report_issue">문제 신고</string>
+    <string name="msg_generating_report">보고서 생성 중</string>
+    <string name="msg_add_termux_debug_info">보고서에 Termux 디버그 정보를 추가할까요?</string>
+
+    <string name="error_styling_not_installed">&TERMUX_STYLING_APP_NAME; 플러그인 앱이 설치되어 있지 않습니다.</string>
+    <string name="action_styling_install">설치</string>
+
+
+
+    <!-- Termux Notifications -->
+    <string name="notification_action_exit">종료</string>
+    <string name="notification_action_wake_lock">wakelock 켜기</string>
+    <string name="notification_action_wake_unlock">wakelock 해제</string>
+
+
+
+    <!-- TermuxService -->
+    <string name="error_display_over_other_apps_permission_not_granted_to_start_terminal">Android 10 이상에서 백그라운드로 터미널 세션을 시작하려면 &TERMUX_APP_NAME;에
+        \"다른 앱 위에 표시\" 권한이 필요합니다.
+        설정 -> 앱 -> &TERMUX_APP_NAME; -> 고급에서 허용하세요</string>
+    <string name="error_termux_service_invalid_execution_command_runner">TermuxService에 전달된 실행 명령 runner가 잘못되었습니다: `%1$s`</string>
+    <string name="error_termux_service_unsupported_execution_command_runner">TermuxService에서 지원하지 않는 실행 명령 runner입니다: `%1$s`</string>
+    <string name="error_termux_service_unsupported_execution_command_shell_create_mode">TermuxService에서 지원하지 않는 셸 생성 모드입니다: `%1$s`</string>
+    <string name="error_termux_service_execution_command_shell_name_unset">셸 이름이 설정되지 않았는데 `%1$s` 셸 생성 모드가 전달되었습니다</string>
+
+
+
+    <!-- Termux RunCommandService -->
+    <string name="error_run_command_service_invalid_intent_action">RunCommandService에 전달된 intent action이 잘못되었습니다: `%1$s`</string>
+    <string name="error_run_command_service_invalid_execution_command_runner">RunCommandService에 전달된 실행 명령 runner가 잘못되었습니다: `%1$s`</string>
+    <string name="error_run_command_service_mandatory_extra_missing">RunCommandService에 필수 extra가 없습니다: \"%1$s\"</string>
+    <string name="error_run_command_service_api_help">RUN_COMMAND Intent 사용법은 %1$s 에서 확인하세요.</string>
+
+
+
+    <!-- Termux File Receiver -->
+    <string name="title_file_received">~/downloads/에 파일 저장</string>
+    <string name="action_file_received_edit">편집</string>
+    <string name="action_file_received_open_directory">폴더 열기</string>
+
+
+
+    <!-- Miscellaneous -->
+    <string name="error_termux_service_start_failed_general">TermuxService를 시작하지 못했습니다. logcat에서 예외 메시지를 확인하세요.</string>
+    <string name="error_termux_service_start_failed_bg">Android 백그라운드 제한 때문에 앱이 백그라운드에 있는 동안 TermuxService를 시작하지 못했습니다.</string>
+
+
+
+    <!-- Termux Settings -->
+    <string name="title_activity_termux_settings">&TERMUX_APP_NAME; 설정</string>
+
+    <!-- Termux App Preferences -->
+    <string name="termux_preferences_summary">&TERMUX_APP_NAME; 앱 설정</string>
+
+        <!-- Debugging Preferences -->
+        <string name="termux_debugging_preferences_title">디버깅</string>
+        <string name="termux_debugging_preferences_summary">디버깅 설정</string>
+
+            <!-- Logging Category -->
+            <string name="termux_logging_header">로그</string>
+
+                <!-- Log Level -->
+                <string name="termux_log_level_title">로그 수준</string>
+
+                <!-- Terminal View Key Logging -->
+                <string name="termux_terminal_view_key_logging_enabled_title">터미널 뷰 키 로그</string>
+                <string name="termux_terminal_view_key_logging_enabled_off">터미널 뷰 키 입력을 로그에 남기지 않습니다. (기본값)</string>
+                <string name="termux_terminal_view_key_logging_enabled_on">터미널 뷰 키 입력을 logcat 로그에 남깁니다.
+                    로그 양이 매우 많으므로 평소에는 꺼 두세요. 켜 두면 성능 문제가 생깁니다.</string>
+
+                <!-- Plugin Error Notifications -->
+                <string name="termux_plugin_error_notifications_enabled_title">플러그인 오류 알림</string>
+                <string name="termux_plugin_error_notifications_enabled_off">플러그인 오류 메시지와 알림을 표시하지 않습니다.</string>
+                <string name="termux_plugin_error_notifications_enabled_on">플러그인 오류 메시지와 알림을 표시합니다. (기본값)</string>
+
+                <!-- Crash Report Notifications -->
+                <string name="termux_crash_report_notifications_enabled_title">충돌 보고서 알림</string>
+                <string name="termux_crash_report_notifications_enabled_off">충돌 보고서 알림을 표시하지 않습니다.</string>
+                <string name="termux_crash_report_notifications_enabled_on">충돌 보고서 알림을 표시합니다. (기본값)</string>
+
+
+        <!-- Terminal IO Preferences -->
+        <string name="termux_terminal_io_preferences_title">터미널 입출력</string>
+        <string name="termux_terminal_io_preferences_summary">터미널 입출력 설정</string>
+
+            <!-- Keyboard Category -->
+            <string name="termux_keyboard_header">키보드</string>
+
+                <!-- Soft Keyboard -->
+                <string name="termux_soft_keyboard_enabled_title">화면 키보드 사용</string>
+                <string name="termux_soft_keyboard_enabled_off">화면 키보드를 사용하지 않습니다.</string>
+                <string name="termux_soft_keyboard_enabled_on">화면 키보드를 사용합니다. (기본값)</string>
+
+                <!-- Soft Keyboard Only If No Hardware-->
+                <string name="termux_soft_keyboard_enabled_only_if_no_hardware_title">물리 키보드가 없을 때만 화면 키보드 사용</string>
+                <string name="termux_soft_keyboard_enabled_only_if_no_hardware_off">물리 키보드가 연결되어 있어도 화면 키보드를 사용합니다. (기본값)</string>
+                <string name="termux_soft_keyboard_enabled_only_if_no_hardware_on">물리 키보드가 연결되어 있지 않을 때만 화면 키보드를 사용합니다.</string>
+
+                <!-- IME Composing -->
+                <string name="termux_ime_composing_enabled_title">입력 중 글자 미리보기</string>
+                <string name="termux_ime_composing_enabled_off">조합 중인 글자는 확정될 때까지 보이지 않습니다. (기본값)</string>
+                <string name="termux_ime_composing_enabled_on">조합 중인 글자를 커서 위치에 미리 보여 줍니다.</string>
+
+        <!-- Terminal View Preferences -->
+        <string name="termux_terminal_view_preferences_title">터미널 뷰</string>
+        <string name="termux_terminal_view_preferences_summary">터미널 뷰 설정</string>
+
+            <!-- View Category -->
+            <string name="termux_terminal_view_view_header">보기</string>
+
+                <!-- Terminal View Margin Adjustment -->
+                <string name="termux_terminal_view_terminal_margin_adjustment_title">터미널 여백 조정</string>
+                <string name="termux_terminal_view_terminal_margin_adjustment_off">터미널 여백을 조정하지 않습니다.</string>
+                <string name="termux_terminal_view_terminal_margin_adjustment_on">터미널 여백을 조정합니다.
+                    화면 키보드가 추가 키나 터미널 뷰 일부를 가리는 문제를 고치려면 켜 두세요.
+                    기기에서 화면이 깜빡이면 끄세요. (기본값)</string>
+
+
+
+    <!-- Termux:API App Preferences -->
+    <string name="termux_api_preferences_summary">&TERMUX_API_APP_NAME; 앱 설정</string>
+
+
+
+    <!-- Termux:Float App Preferences -->
+    <string name="termux_float_preferences_summary">&TERMUX_FLOAT_APP_NAME; 앱 설정</string>
+
+
+
+    <!-- Termux:Tasker App Preferences -->
+    <string name="termux_tasker_preferences_summary">&TERMUX_TASKER_APP_NAME; 앱 설정</string>
+
+
+
+    <!-- Termux:Widget App Preferences -->
+    <string name="termux_widget_preferences_summary">&TERMUX_WIDGET_APP_NAME; 앱 설정</string>
+
+
+
+    <!-- About Preference -->
+    <string name="about_preference_title">정보</string>
+
+    <!-- Donate Preference -->
+    <string name="donate_preference_title">후원</string>
+
+</resources>
