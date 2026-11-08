@@ -898,7 +898,10 @@ public final class TerminalView extends View {
         // for 했) aborts the in-progress composition (해) — finalize commits it and the posted
         // restartInput clears the IME's composing buffer, so the following ㅅ enters detached.
         if (!KeyEvent.isModifierKey(keyCode)) {
-            finalizeComposingIfActive();
+            // An IME cursor key (e.g. Samsung keyboard's space-bar cursor control) comes while the
+            // IME is driving the cursor itself; restarting input would end that gesture after
+            // the first step, so commit without the restart.
+            finalizeComposingIfActive(!isImeCursorKey(keyCode, event));
             cancelMouseSelectionIfHolding();
         }
         if (isSelectingText()) {
@@ -1254,6 +1257,25 @@ public final class TerminalView extends View {
      * digit-only input is unaffected.
      */
     private void finalizeComposingIfActive() {
+        finalizeComposingIfActive(true);
+    }
+
+    private static boolean isImeCursorKey(int keyCode, KeyEvent event) {
+        if ((event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) == 0) return false;
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_MOVE_HOME:
+            case KeyEvent.KEYCODE_MOVE_END:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void finalizeComposingIfActive(boolean restartInput) {
         if (mComposingText == null) return;
         if (mInputConnection != null) {
             Editable e = mInputConnection.getEditable();
@@ -1262,6 +1284,7 @@ public final class TerminalView extends View {
             }
             mInputConnection.finishComposingText();
         }
+        if (!restartInput) return;
         post(() -> {
             InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.restartInput(TerminalView.this);
