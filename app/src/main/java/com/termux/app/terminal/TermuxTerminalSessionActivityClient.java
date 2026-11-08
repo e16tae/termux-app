@@ -389,6 +389,21 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
     }
 
+    /**
+     * e16tae fork: replace the current session with a new one, e.g. when an SSH connection hangs.
+     * The new session's login shell starts whatever the user's profile runs (such as reconnecting).
+     */
+    public void reconnectSession() {
+        TermuxService service = mActivity.getTermuxService();
+        if (service == null) return;
+        TerminalSession oldSession = mActivity.getCurrentSession();
+        addNewSession(false, oldSession != null ? oldSession.mSessionName : null);
+        TerminalSession newSession = mActivity.getCurrentSession();
+        // addNewSession() does nothing when the session limit is reached.
+        if (oldSession != null && newSession != oldSession)
+            service.removeTermuxSession(oldSession);
+    }
+
     public void setCurrentStoredSession() {
         TerminalSession currentSession = mActivity.getCurrentSession();
         if (currentSession != null)

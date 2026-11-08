@@ -1105,8 +1105,11 @@ public final class TerminalView extends View {
         TerminalEmulator term = mTermSession.getEmulator();
         String code = KeyHandler.getCode(keyCode, keyMod, term.isCursorKeysApplicationMode(), term.isKeypadApplicationMode());
         if (code == null) return false;
-        // Enter, backspace, arrows etc. change the line in ways the pending text cannot predict.
-        clearPendingEcho();
+        // Backspace, arrows etc. change the line in ways the pending text cannot predict. Enter does
+        // not: the program echoes the pending text before it acts on Enter, and drawComposingText()
+        // drops the text once the cursor moves on, so keep showing it instead of blinking it away.
+        if (keyCode != KeyEvent.KEYCODE_ENTER && keyCode != KeyEvent.KEYCODE_NUMPAD_ENTER)
+            clearPendingEcho();
         mTermSession.write(code);
         return true;
     }
@@ -1233,6 +1236,8 @@ public final class TerminalView extends View {
      */
     private void trackPendingEcho(int codePoint, boolean altDown) {
         if (mEmulator == null) return;
+        // Enter or a new line: keep the pending text, see onKeyDown().
+        if (!altDown && (codePoint == '\r' || codePoint == '\n')) return;
         if (altDown || codePoint < 32 || codePoint == 127) {
             clearPendingEcho();
             return;

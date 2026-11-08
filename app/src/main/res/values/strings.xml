@@ -240,20 +240,22 @@
     <string name="donate_preference_title">Donate</string>
 
 
-    <!-- e16tae fork: in-app update -->
-    <string name="e16tae_update_check">업데이트 확인</string>
-    <string name="e16tae_update_checking">확인 중…</string>
-    <string name="e16tae_update_latest">최신 버전 (%1$s)</string>
-    <string name="e16tae_update_install">새 버전 설치 (%1$s)</string>
-    <string name="e16tae_update_downloading">받는 중 %1$d%%</string>
-    <string name="e16tae_update_installing">설치 화면 여는 중…</string>
-    <string name="e16tae_update_retry">확인 실패 · 다시 시도</string>
-    <string name="e16tae_update_available_toast">새 버전(%1$s)이 나왔습니다. 왼쪽 패널에서 설치하세요.</string>
-    <string name="e16tae_update_latest_toast">최신 버전입니다 (%1$s)</string>
-    <string name="e16tae_update_check_failed">업데이트를 확인하지 못했습니다. 네트워크를 확인해 주세요.</string>
-    <string name="e16tae_update_no_release">정식 릴리스 없음</string>
-    <string name="e16tae_update_no_release_toast">아직 정식 릴리스가 없습니다.</string>
-    <string name="e16tae_update_dev_downloading">dev 시험판을 받습니다.</string>
-    <string name="e16tae_update_dev_installed">이미 최신 dev 시험판입니다.</string>
-    <string name="e16tae_update_install_failed">업데이트하지 못했습니다: %1$s</string>
+    <!-- e16tae fork -->
+    <string name="e16tae_update_check">Check for updates</string>
+    <string name="e16tae_update_checking">Checking…</string>
+    <string name="e16tae_update_latest">Up to date (%1$s)</string>
+    <string name="e16tae_update_install">Install %1$s</string>
+    <string name="e16tae_update_downloading">Downloading %1$d%%</string>
+    <string name="e16tae_update_installing">Opening installer…</string>
+    <string name="e16tae_update_retry">Check failed · retry</string>
+    <string name="e16tae_update_available_toast">%1$s is available. Install it from the drawer.</string>
+    <string name="e16tae_update_latest_toast">You have the latest version (%1$s).</string>
+    <string name="e16tae_update_check_failed">Could not check for updates. Check the network connection.</string>
+    <string name="e16tae_update_no_release">No release yet</string>
+    <string name="e16tae_update_no_release_toast">No release has been published yet.</string>
+    <string name="e16tae_update_dev_downloading">Downloading the dev build.</string>
+    <string name="e16tae_update_dev_installed">The latest dev build is already installed.</string>
+    <string name="e16tae_update_install_failed">Update failed: %1$s</string>
+    <string name="e16tae_reconnect">Reconnect</string>
+    <string name="e16tae_more_menu">Menu</string>
 </resources>

@@ -257,6 +257,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setUpdateButtonView();
 
+        setDrawerExtraButtonViews();
+
         registerForContextMenu(mTerminalView);
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
@@ -590,6 +592,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 -1, null, null);
             return true;
         });
+    }
+
+    private void setDrawerExtraButtonViews() {
+        // Long press on the terminal starts a selection while a program tracks the mouse, so the
+        // terminal's context menu is opened from the drawer instead.
+        findViewById(R.id.e16tae_menu_button).setOnClickListener(v -> {
+            getDrawer().closeDrawers();
+            mTerminalView.showContextMenu();
+        });
+        findViewById(R.id.e16tae_reconnect_button).setOnClickListener(v ->
+            mTermuxTerminalSessionActivityClient.reconnectSession());
     }
 
     private void setUpdateButtonView() {
