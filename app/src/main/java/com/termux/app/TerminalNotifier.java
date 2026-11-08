@@ -6,6 +6,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,7 +21,8 @@ import com.termux.terminal.TerminalSession;
 /**
  * e16tae fork: shows the desktop notifications that programs ask for (OSC 9, 99 and 777) as
  * Android notifications. Tapping one opens its session, and runs ~/bin/termux-notification-hook
- * with the title, body and id if it exists, e.g. to go to what the notification is about.
+ * with the title, body and id if it exists. What the hook prints is typed into the session, so it
+ * can e.g. send the keys that go to what the notification is about.
  */
 public final class TerminalNotifier {
 
@@ -130,17 +133,21 @@ public final class TerminalNotifier {
         activity.getTermuxTerminalSessionClient().setCurrentSession(session);
         String report = intent.getStringExtra(EXTRA_REPORT);
         if (report != null && session.isRunning()) session.write(report);
-        runHook(activity.getApplicationContext(), nonNull(intent.getStringExtra(EXTRA_TITLE)),
+        runHook(activity.getApplicationContext(), session, nonNull(intent.getStringExtra(EXTRA_TITLE)),
             nonNull(intent.getStringExtra(EXTRA_BODY)), nonNull(intent.getStringExtra(EXTRA_ID)));
         return true;
     }
 
-    private static void runHook(Context context, String title, String body, String id) {
+    private static void runHook(Context context, TerminalSession session, String title, String body, String id) {
         java.io.File hook = TermuxHooks.find(HOOK_NAME);
         if (hook == null) return;
+        Handler mainHandler = new Handler(Looper.getMainLooper());
         new Thread(() -> {
             try {
-                TermuxHooks.run(context, hook, HOOK_TIMEOUT_SECONDS, title, body, id);
+                String input = TermuxHooks.runForOutput(context, hook, HOOK_TIMEOUT_SECONDS, title, body, id);
+                if (!input.isEmpty()) mainHandler.post(() -> {
+                    if (session.isRunning()) session.write(input);
+                });
             } catch (Exception e) {
                 Logger.logStackTraceWithMessage(LOG_TAG, HOOK_NAME + " failed", e);
             }

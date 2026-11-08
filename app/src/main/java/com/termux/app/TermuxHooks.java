@@ -43,6 +43,19 @@ public final class TermuxHooks {
      */
     @Nullable
     public static String run(Context context, File hook, long timeoutSeconds, String... args) throws Exception {
+        String last = null;
+        for (String line : runForOutput(context, hook, timeoutSeconds, args).split("\n"))
+            if (!line.trim().isEmpty()) last = line.trim();
+        return last;
+    }
+
+    /**
+     * Runs the hook in the Termux environment and returns everything it printed, unchanged. Call it
+     * off the main thread.
+     *
+     * @throws IOException if it fails, exits with an error or times out.
+     */
+    public static String runForOutput(Context context, File hook, long timeoutSeconds, String... args) throws Exception {
         // Through sh so that the hook's shebang is resolved like in a Termux shell.
         List<String> command = new ArrayList<>(Arrays.asList(TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/bin/sh",
             "-c", "exec \"$0\" \"$@\"", hook.getAbsolutePath()));
@@ -64,10 +77,11 @@ public final class TermuxHooks {
         });
         errReader.start();
 
-        String last = null;
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = r.readLine()) != null) if (!line.trim().isEmpty()) last = line.trim();
+        StringBuilder stdout = new StringBuilder();
+        try (InputStreamReader r = new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8)) {
+            char[] buffer = new char[4096];
+            int n;
+            while ((n = r.read(buffer)) != -1) stdout.append(buffer, 0, n);
         }
         if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
             process.destroy();
@@ -80,6 +94,6 @@ public final class TermuxHooks {
             throw new IOException(hook.getName() + " failed (" + process.exitValue() + ")"
                 + (err.isEmpty() ? "" : ": " + err.substring(nl + 1)));
         }
-        return last;
+        return stdout.toString();
     }
 }
