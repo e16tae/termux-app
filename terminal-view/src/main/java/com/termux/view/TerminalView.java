@@ -465,6 +465,31 @@ public final class TerminalView extends View {
                 return super.deleteSurroundingText(leftLength, rightLength);
             }
 
+            // Keyboards such as Samsung's only move the cursor (space-bar cursor control) within
+            // the text they can see around it, and this editor clears its text after every
+            // commit. Report blank padding on both sides so the keyboard keeps sending arrow
+            // keys, which go to the terminal like any other key.
+            @Override
+            public CharSequence getTextBeforeCursor(int n, int flags) {
+                return padImeContext(super.getTextBeforeCursor(n, flags), n, true);
+            }
+
+            @Override
+            public CharSequence getTextAfterCursor(int n, int flags) {
+                return padImeContext(super.getTextAfterCursor(n, flags), n, false);
+            }
+
+            @Override
+            public android.view.inputmethod.SurroundingText getSurroundingText(int beforeLength, int afterLength, int flags) {
+                CharSequence before = getTextBeforeCursor(beforeLength, flags);
+                CharSequence after = getTextAfterCursor(afterLength, flags);
+                CharSequence selected = getSelectedText(flags);
+                if (before == null || after == null) return null;
+                if (selected == null) selected = "";
+                String text = before.toString() + selected + after;
+                return new android.view.inputmethod.SurroundingText(text, before.length(), before.length() + selected.length(), -1);
+            }
+
             @Override
             public boolean setSelection(int start, int end) {
                 if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
@@ -1258,6 +1283,17 @@ public final class TerminalView extends View {
      */
     private void finalizeComposingIfActive() {
         finalizeComposingIfActive(true);
+    }
+
+    private static final int IME_CONTEXT_PADDING = 256;
+
+    private static CharSequence padImeContext(CharSequence real, int n, boolean before) {
+        if (real == null) real = "";
+        int pad = Math.min(Math.max(n - real.length(), 0), IME_CONTEXT_PADDING);
+        if (pad == 0) return real;
+        char[] blanks = new char[pad];
+        java.util.Arrays.fill(blanks, ' ');
+        return before ? new String(blanks) + real : real.toString() + new String(blanks);
     }
 
     private static boolean isImeCursorKey(int keyCode, KeyEvent event) {
