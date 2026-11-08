@@ -603,10 +603,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             getDrawer().closeDrawers();
             mTerminalView.showContextMenu();
         });
-        findViewById(R.id.e16tae_attach_button).setOnClickListener(v -> {
-            getDrawer().closeDrawers();
-            mFileAttacher.pick();
-        });
     }
 
     private void setUpdateButtonView() {
