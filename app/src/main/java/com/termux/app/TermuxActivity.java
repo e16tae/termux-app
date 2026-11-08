@@ -196,6 +196,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private AppUpdater.Listener mUpdateListener;
 
+    private final FileAttacher mFileAttacher = new FileAttacher(this);
+
     private static final String LOG_TAG = "TermuxActivity";
 
     @Override
@@ -601,6 +603,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             getDrawer().closeDrawers();
             mTerminalView.showContextMenu();
         });
+        findViewById(R.id.e16tae_attach_button).setOnClickListener(v -> {
+            getDrawer().closeDrawers();
+            mFileAttacher.pick();
+        });
     }
 
     private void setUpdateButtonView() {
@@ -840,6 +846,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         Logger.logVerbose(LOG_TAG, "onActivityResult: requestCode: " + requestCode + ", resultCode: "  + resultCode + ", data: "  + IntentUtils.getIntentString(data));
+        if (mFileAttacher.onActivityResult(requestCode, resultCode, data)) return;
         if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
             requestStoragePermission(true);
         }
@@ -855,6 +862,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
 
+
+    public FileAttacher getFileAttacher() {
+        return mFileAttacher;
+    }
 
     public int getNavBarHeight() {
         return mNavBarHeight;

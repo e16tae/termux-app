@@ -257,4 +257,10 @@
     <string name="e16tae_update_dev_installed">The latest dev build is already installed.</string>
     <string name="e16tae_update_install_failed">Update failed: %1$s</string>
     <string name="e16tae_more_menu">Menu</string>
+    <string name="e16tae_attach">Attach</string>
+    <string name="e16tae_attach_busy">Still attaching the previous files.</string>
+    <string name="e16tae_attach_no_picker">No app to pick files with.</string>
+    <string name="e16tae_attach_uploading">Uploading…</string>
+    <string name="e16tae_attach_copying">Copying…</string>
+    <string name="e16tae_attach_failed">Attach failed: %1$s</string>
 </resources>

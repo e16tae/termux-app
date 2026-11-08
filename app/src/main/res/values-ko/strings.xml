@@ -245,4 +245,10 @@
     <string name="e16tae_update_dev_installed">이미 최신 dev 시험판입니다.</string>
     <string name="e16tae_update_install_failed">업데이트하지 못했습니다: %1$s</string>
     <string name="e16tae_more_menu">메뉴</string>
+    <string name="e16tae_attach">첨부</string>
+    <string name="e16tae_attach_busy">앞의 첨부가 아직 진행 중입니다.</string>
+    <string name="e16tae_attach_no_picker">파일을 고를 앱이 없습니다.</string>
+    <string name="e16tae_attach_uploading">올리는 중…</string>
+    <string name="e16tae_attach_copying">복사하는 중…</string>
+    <string name="e16tae_attach_failed">첨부하지 못했습니다: %1$s</string>
 </resources>

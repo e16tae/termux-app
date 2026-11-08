@@ -44,6 +44,10 @@ public class TextSelectionHandleView extends View {
 
     private int mHandleHeight;
     private int mHandleWidth;
+    // Transparent margin around the drawable that still takes touches: the drawable alone is
+    // small enough that a slightly-off touch lands on the terminal instead.
+    private final int mTouchPadX;
+    private final int mTouchPadBottom;
 
     private final int mInitialOrientation;
     private int mOrientation;
@@ -56,6 +60,9 @@ public class TextSelectionHandleView extends View {
     public TextSelectionHandleView(TerminalView terminalView, CursorController cursorController, int initialOrientation) {
         super(terminalView.getContext());
         this.terminalView = terminalView;
+        final float density = terminalView.getResources().getDisplayMetrics().density;
+        mTouchPadX = Math.round(14 * density);
+        mTouchPadBottom = Math.round(18 * density);
         mCursorController = cursorController;
         mInitialOrientation = initialOrientation;
 
@@ -92,14 +99,14 @@ public class TextSelectionHandleView extends View {
             case LEFT: {
                 mHandleDrawable = mHandleLeftDrawable;
                 handleWidth = mHandleDrawable.getIntrinsicWidth();
-                mHotspotX = (handleWidth * 3) / (float) 4;
+                mHotspotX = mTouchPadX + (handleWidth * 3) / (float) 4;
                 break;
             }
 
             case RIGHT: {
                 mHandleDrawable = mHandleRightDrawable;
                 handleWidth = mHandleDrawable.getIntrinsicWidth();
-                mHotspotX = handleWidth / (float) 4;
+                mHotspotX = mTouchPadX + handleWidth / (float) 4;
                 break;
             }
         }
@@ -280,7 +287,7 @@ public class TextSelectionHandleView extends View {
     public void onDraw(Canvas c) {
         final int width = mHandleDrawable.getIntrinsicWidth();
         int height = mHandleDrawable.getIntrinsicHeight();
-        mHandleDrawable.setBounds(0, 0, width, height);
+        mHandleDrawable.setBounds(mTouchPadX, 0, mTouchPadX + width, height);
         mHandleDrawable.draw(c);
     }
 
@@ -322,8 +329,8 @@ public class TextSelectionHandleView extends View {
 
     @Override
     public void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(mHandleDrawable.getIntrinsicWidth(),
-            mHandleDrawable.getIntrinsicHeight());
+        setMeasuredDimension(mHandleDrawable.getIntrinsicWidth() + 2 * mTouchPadX,
+            mHandleDrawable.getIntrinsicHeight() + mTouchPadBottom);
     }
 
     public int getHandleHeight() {
