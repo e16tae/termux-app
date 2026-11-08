@@ -6,7 +6,7 @@ Each release is tagged `v<upstream version>-e16tae.<n>`.
 이 포크가 [termux/termux-app](https://github.com/termux/termux-app) 위에 더한 변경 사항입니다.
 릴리스 태그는 `v<원본 버전>-e16tae.<번호>` 형식입니다.
 
-## Unreleased
+## v0.118.0-e16tae.1 (2026-11-08)
 
 ### English
 - **Korean/CJK input:** the IME's in-progress composition is drawn at the terminal cursor (based on termux/termux-app#5242). Committed text stays on screen until the remote echo arrives, so typing over SSH no longer flickers, including when Enter is pressed.
