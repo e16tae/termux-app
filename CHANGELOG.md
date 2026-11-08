@@ -6,7 +6,7 @@ Each release is tagged `v<upstream version>-e16tae.<n>`.
 이 포크가 [termux/termux-app](https://github.com/termux/termux-app) 위에 더한 변경 사항입니다.
 릴리스 태그는 `v<원본 버전>-e16tae.<번호>` 형식입니다.
 
-## Unreleased
+## v0.118.0-e16tae.2 (2026-11-08)
 
 ### English
 - **Desktop notifications:** programs can show Android notifications with the escape sequences OSC 9 (iTerm2), OSC 777 (`notify`) and OSC 99 (kitty, including chunked titles and bodies, `i=`, `a=report`, `o=`, `u=`, `p=?` and `p=close`). Tapping one opens its session and runs `~/bin/termux-notification-hook` with the title, body and id if it exists; what the hook prints is typed into the session, e.g. the keys that go to what the notification is about.
