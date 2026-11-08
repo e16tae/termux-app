@@ -145,8 +145,8 @@ jobs:
               echo
               echo "\`dev\` 브랜치의 개발용 시험판입니다. \`dev\`에 push할 때마다 바뀝니다. 시험하는 경우가 아니면 최신 정식 릴리스를 쓰세요."
               echo
-              echo "### Changes since ${LAST:-the first commit}"
-              git log --no-merges --max-count=40 --format='- %s (%h)' ${LAST:+$LAST..}HEAD -- . ':!.github'
+              echo "### Changes since ${LAST:-upstream ${UP_BASE:0:7}}"
+              git log --no-merges --max-count=40 --format='- %s (%h)' "${LAST:-$UP_BASE}..HEAD" -- . ':!.github'
             fi
             echo
             echo "---"
