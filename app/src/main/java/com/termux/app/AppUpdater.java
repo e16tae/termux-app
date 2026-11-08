@@ -49,8 +49,11 @@ public final class AppUpdater {
     private static final String RELEASES_API = "https://api.github.com/repos/e16tae/termux-app/releases/latest";
     private static final long AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L;
     private static final String ACTION_INSTALL_RESULT = "com.termux.app.e16tae.INSTALL_RESULT";
-    private static final Pattern INSTALLED_BUILD = Pattern.compile("e16tae\\.(\\d+)");
-    private static final Pattern RELEASE_BUILD = Pattern.compile("^e16tae-(\\d+)$");
+    // Release builds are "<upstream>+e16tae.<n>", dev builds "<upstream>+e16tae.<n>.dev.<run>.<sha>"
+    // where n is the last release. Builds from before releases were numbered this way
+    // ("+e16tae.<run>.<sha>") do not match and count as 0.
+    private static final Pattern INSTALLED_BUILD = Pattern.compile("\\+e16tae\\.(\\d+)(\\.dev\\..+)?$");
+    private static final Pattern RELEASE_BUILD = Pattern.compile("^v\\d+\\.\\d+\\.\\d+-e16tae\\.(\\d+)$");
 
     private static AppUpdater sInstance;
 
@@ -131,7 +134,7 @@ public final class AppUpdater {
                     mSumsUrl = fSumsUrl;
                     if (newer) {
                         setState(State.AVAILABLE, 0);
-                        if (!userRequested) toast(mContext.getString(R.string.e16tae_update_available_toast, tag));
+                        if (!userRequested) toast(mContext.getString(R.string.e16tae_update_available_toast, shortTag(tag)));
                     } else {
                         setState(State.UP_TO_DATE, 0);
                         if (userRequested) toast(mContext.getString(R.string.e16tae_update_latest_toast, installedLabel()));
@@ -233,8 +236,14 @@ public final class AppUpdater {
     }
 
     public String installedLabel() {
-        int n = installedNumber();
-        return n > 0 ? "e16tae-" + n : BuildConfig.VERSION_NAME;
+        Matcher m = INSTALLED_BUILD.matcher(BuildConfig.VERSION_NAME);
+        if (!m.find()) return BuildConfig.VERSION_NAME;
+        return "e16tae." + m.group(1) + (m.group(2) != null ? " dev" : "");
+    }
+
+    /** "v0.118.0-e16tae.3" → "e16tae.3" for the drawer button. */
+    public static String shortTag(String tag) {
+        return tag == null ? "" : tag.replaceFirst("^v[0-9.]+-", "");
     }
 
     private static int installedNumber() {

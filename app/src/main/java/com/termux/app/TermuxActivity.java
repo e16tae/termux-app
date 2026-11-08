@@ -600,7 +600,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             switch (state) {
                 case CHECKING: updateButton.setText(R.string.e16tae_update_checking); break;
                 case UP_TO_DATE: updateButton.setText(getString(R.string.e16tae_update_latest, updater.installedLabel())); break;
-                case AVAILABLE: updateButton.setText(getString(R.string.e16tae_update_install, latestTag)); break;
+                case AVAILABLE: updateButton.setText(getString(R.string.e16tae_update_install, AppUpdater.shortTag(latestTag))); break;
                 case DOWNLOADING: updateButton.setText(getString(R.string.e16tae_update_downloading, progress)); break;
                 case INSTALLING: updateButton.setText(R.string.e16tae_update_installing); break;
                 case FAILED: updateButton.setText(R.string.e16tae_update_retry); break;

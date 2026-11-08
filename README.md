@@ -1,3 +1,26 @@
+# Termux (e16tae fork)
+
+A personal build of [Termux](https://github.com/termux/termux-app) tuned for use as a remote terminal client (SSH, terminal multiplexers, Korean input). It is not an official Termux release and is not affiliated with the Termux project.
+
+- **What is different:** see [CHANGELOG.md](CHANGELOG.md).
+- **Install:** download the APK from [Releases](https://github.com/e16tae/termux-app/releases/latest). It is signed with its own key, so it cannot be installed over F-Droid, Google Play or official GitHub builds. Uninstall those first, together with every Termux plugin app signed with their key. Matching plugin builds: [termux-boot](https://github.com/e16tae/termux-boot/releases/latest), [termux-widget](https://github.com/e16tae/termux-widget/releases/latest).
+- **Signing certificate SHA-256:** `BF:E9:7B:F9:77:33:40:76:8E:BE:B7:B2:CA:8C:FD:83:40:5E:96:50:0B:39:1B:43:E0:54:2B:F5:AA:F0:44:EF`
+- **Branches:** `main` holds released code and `dev` holds work in progress. Releases are tagged `v<upstream version>-e16tae.<n>`. The `dev-latest` pre-release is an untested build of `dev`.
+
+<details>
+<summary>한국어</summary>
+
+원격 터미널 클라이언트(SSH, 터미널 멀티플렉서, 한글 입력)로 쓰기 좋게 고친 [Termux](https://github.com/termux/termux-app) 개인 빌드입니다. Termux 공식 릴리스가 아니며 Termux 프로젝트와 관계가 없습니다.
+
+- **달라진 점:** [CHANGELOG.md](CHANGELOG.md)를 보세요.
+- **설치:** [Releases](https://github.com/e16tae/termux-app/releases/latest)에서 APK를 받습니다. 별도 키로 서명했기 때문에 F-Droid, Google Play, 공식 GitHub 빌드 위에 덮어 설치할 수 없습니다. 먼저 그 앱과, 같은 키로 서명된 Termux 플러그인 앱을 모두 지우세요. 짝이 되는 플러그인: [termux-boot](https://github.com/e16tae/termux-boot/releases/latest), [termux-widget](https://github.com/e16tae/termux-widget/releases/latest).
+- **서명 인증서 SHA-256:** 위와 같습니다.
+- **브랜치:** `main`은 배포한 코드, `dev`는 작업 중인 코드입니다. 릴리스 태그는 `v<원본 버전>-e16tae.<번호>`입니다. `dev-latest` 시험판은 확인을 거치지 않은 `dev` 빌드입니다.
+
+</details>
+
+---
+
 # Termux application
 
 [![Build status](https://github.com/termux/termux-app/workflows/Build/badge.svg)](https://github.com/termux/termux-app/actions)

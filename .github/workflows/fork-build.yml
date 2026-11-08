@@ -1,0 +1,188 @@
+# e16tae fork build.
+# - push to dev:            build a development APK and replace the "dev-latest" pre-release
+# - push a v*-e16tae.* tag: build that tag and publish a release with notes from CHANGELOG.md
+# - weekly schedule:        tell me (ntfy) when upstream master has commits that main lacks
+# Secrets: SIGNING_KEYSTORE_BASE64, SIGNING_KEYSTORE_PASSWORD, SIGNING_KEY_ALIAS, NTFY_TOPIC
+name: Fork build
+
+on:
+  push:
+    branches: [dev]
+    tags: ["v*-e16tae.*"]
+  schedule:
+    - cron: "0 18 * * 0" # every Monday 03:00 KST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/dev' }}
+
+env:
+  UPSTREAM_REPO: termux/termux-app
+  APP_NAME: Termux
+  GRADLE_TASK: assembleRelease
+  DEV_TAG: dev-latest
+  # gh would otherwise pick the "upstream" remote as the base repo.
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  upstream-check:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Compare with upstream master
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          set -euo pipefail
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch -q upstream master
+          COUNT="$(git rev-list --count HEAD..upstream/master)"
+          echo "upstream master commits not in main: $COUNT"
+          [ "$COUNT" -gt 0 ] && [ -n "${NTFY_TOPIC:-}" ] || exit 0
+          curl -fsS -H "Title: ${APP_NAME}: upstream has ${COUNT} new commit(s)" -H "Tags: arrows_counterclockwise" \
+            -d "$(git log --oneline HEAD..upstream/master | head -10)" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
+
+  build:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Work out the version
+        run: |
+          set -euo pipefail
+          BASE="$(grep -m1 -E '^\s+versionName "' app/build.gradle | sed -E 's/.*"([^"]+)".*/\1/')"
+          SHA="$(git rev-parse --short=7 HEAD)"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="$GITHUB_REF_NAME"
+            N="${TAG##*-e16tae.}"
+            if [ "$TAG" != "v${BASE}-e16tae.${N}" ]; then
+              echo "::error::Tag $TAG does not match versionName $BASE (expected v${BASE}-e16tae.<n>)."
+              exit 1
+            fi
+            echo "CHANNEL=stable" >> "$GITHUB_ENV"
+            echo "VERSION=${BASE}+e16tae.${N}" >> "$GITHUB_ENV"
+            echo "APK_TAG=${TAG}" >> "$GITHUB_ENV"
+            echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          else
+            LAST="$(git describe --tags --match 'v*-e16tae.*' --abbrev=0 2>/dev/null || true)"
+            N="${LAST##*-e16tae.}"
+            echo "CHANNEL=dev" >> "$GITHUB_ENV"
+            echo "VERSION=${BASE}+e16tae.${N:-0}.dev.${GITHUB_RUN_NUMBER}.${SHA}" >> "$GITHUB_ENV"
+            echo "APK_TAG=dev" >> "$GITHUB_ENV"
+            echo "TAG=${DEV_TAG}" >> "$GITHUB_ENV"
+            echo "LAST=${LAST}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Check the release notes exist
+        if: env.CHANNEL == 'stable'
+        run: |
+          awk -v tag="$TAG" '$1 == "##" && $2 == tag { found = 1 } END { exit !found }' CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md has no '## ${TAG}' section."; exit 1; }
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build unsigned release APKs
+        run: |
+          set -euo pipefail
+          export TERMUX_APP_VERSION_NAME="$VERSION"
+          export TERMUX_APK_VERSION_TAG="$APK_TAG"
+          export TERMUX_PACKAGE_VARIANT="apt-android-7"
+          # termux-app: the native build can run before javaCompile (which downloadBootstraps
+          # hangs off) in release builds, so fetch the bootstrap zips first.
+          if grep -q 'task downloadBootstraps' app/build.gradle; then
+            ./gradlew --no-daemon downloadBootstraps
+          fi
+          ./gradlew --no-daemon "$GRADLE_TASK"
+          ls -la app/build/outputs/apk/release/
+
+      - name: Sign APKs
+        env:
+          KS_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$KS_B64" | base64 -d > "$KS"
+          mkdir -p dist
+          for apk in app/build/outputs/apk/release/*.apk; do
+            name="$(basename "$apk" .apk)"
+            name="${name%-unsigned}"
+            "$BT/zipalign" -f -p 4 "$apk" "$RUNNER_TEMP/aligned.apk"
+            "$BT/apksigner" sign --v4-signing-enabled false --ks "$KS" --ks-pass env:KS_PASS --ks-key-alias "$KS_ALIAS" \
+              --out "dist/${name}.apk" "$RUNNER_TEMP/aligned.apk"
+          done
+          rm -f "$KS"
+          CERT="$("$BT/apksigner" verify --print-certs "$(ls dist/*.apk | head -1)" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)"
+          echo "CERT=$CERT" >> "$GITHUB_ENV"
+          (cd dist && sha256sum *.apk > SHA256SUMS)
+          ls -la dist
+
+      - name: Write the release notes
+        run: |
+          set -euo pipefail
+          UP_BASE="$(git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" && git fetch -q upstream master && git merge-base HEAD upstream/master)"
+          {
+            if [ "$CHANNEL" = stable ]; then
+              awk -v tag="$TAG" '$1 == "##" { if (p) exit; if ($2 == tag) { p = 1; next } } p' CHANGELOG.md
+            else
+              echo "Development build of \`dev\` at ${GITHUB_SHA:0:7}. It is replaced on every push to \`dev\`; use the latest release unless you are testing."
+              echo
+              echo "\`dev\` 브랜치의 개발용 시험판입니다. \`dev\`에 push할 때마다 바뀝니다. 시험하는 경우가 아니면 최신 정식 릴리스를 쓰세요."
+              echo
+              echo "### Changes since ${LAST:-the first commit}"
+              git log --no-merges --format='- %s (%h)' ${LAST:+$LAST..}HEAD -- . ':!.github' | head -40
+            fi
+            echo
+            echo "---"
+            echo "Based on ${UPSTREAM_REPO}@${UP_BASE:0:7}. Signing certificate SHA-256: \`${CERT}\`"
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = stable ]; then
+            gh release create "$TAG" dist/* --verify-tag --latest \
+              --title "${APP_NAME} ${TAG}" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "${APP_NAME} development build" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+
+      - name: Notify (success)
+        if: success()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          [ -n "${NTFY_TOPIC:-}" ] || exit 0
+          if [ "$CHANNEL" = stable ]; then title="${APP_NAME} ${TAG} released"; else title="${APP_NAME} dev build ready"; fi
+          curl -fsS -H "Title: ${title}" -H "Tags: package" -d "${VERSION}" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
+
+      - name: Notify (failure)
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          [ -n "${NTFY_TOPIC:-}" ] || exit 0
+          curl -fsS -H "Title: ${APP_NAME} build FAILED" -H "Priority: high" -H "Tags: warning" \
+            -d "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null || true
