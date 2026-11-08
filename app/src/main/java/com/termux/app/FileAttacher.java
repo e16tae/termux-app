@@ -19,23 +19,18 @@ import androidx.annotation.Nullable;
 import com.termux.R;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 import com.termux.terminal.TerminalSession;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
 /**
  * e16tae fork: attach files to the terminal input.
@@ -51,7 +46,7 @@ public final class FileAttacher {
 
     private static final String LOG_TAG = "FileAttacher";
     private static final String ATTACH_DIR_PATH = TermuxConstants.TERMUX_HOME_DIR_PATH + "/downloads/attach";
-    private static final String HOOK_PATH = TermuxConstants.TERMUX_HOME_DIR_PATH + "/bin/termux-attach-hook";
+    private static final String HOOK_NAME = "termux-attach-hook";
     private static final long HOOK_TIMEOUT_SECONDS = 180;
 
     private final TermuxActivity mActivity;
@@ -129,7 +124,7 @@ public final class FileAttacher {
             return;
         }
 
-        final boolean hasHook = new File(HOOK_PATH).canExecute();
+        final boolean hasHook = TermuxHooks.find(HOOK_NAME) != null;
         mBusy = true;
         toast(hasHook ? R.string.e16tae_attach_uploading : R.string.e16tae_attach_copying);
         new Thread(() -> {
@@ -194,42 +189,10 @@ public final class FileAttacher {
 
     /** Runs the hook and returns the last line it printed. */
     private String runHook(File file) throws Exception {
-        // Through sh so that the hook's shebang is resolved like in a Termux shell.
-        ProcessBuilder builder = new ProcessBuilder(TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/bin/sh",
-            "-c", "exec \"$0\" \"$@\"", HOOK_PATH, file.getAbsolutePath());
-        builder.environment().clear();
-        builder.environment().putAll(new TermuxShellEnvironment().getEnvironment(mActivity, false));
-        builder.directory(new File(TermuxConstants.TERMUX_HOME_DIR_PATH));
-        builder.redirectErrorStream(false);
-        Process process = builder.start();
-        process.getOutputStream().close();
-
-        final StringBuilder stderr = new StringBuilder();
-        Thread errReader = new Thread(() -> {
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = r.readLine()) != null) stderr.append(line).append('\n');
-            } catch (IOException ignored) {
-            }
-        });
-        errReader.start();
-
-        String last = null;
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = r.readLine()) != null) if (!line.trim().isEmpty()) last = line.trim();
-        }
-        if (!process.waitFor(HOOK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-            process.destroy();
-            throw new IOException("termux-attach-hook timed out");
-        }
-        errReader.join(1000);
-        if (process.exitValue() != 0 || last == null) {
-            String err = stderr.toString().trim();
-            int nl = err.lastIndexOf('\n');
-            throw new IOException("termux-attach-hook failed (" + process.exitValue() + ")"
-                + (err.isEmpty() ? "" : ": " + err.substring(nl + 1)));
-        }
+        File hook = TermuxHooks.find(HOOK_NAME);
+        if (hook == null) throw new IOException(HOOK_NAME + " is missing");
+        String last = TermuxHooks.run(mActivity, hook, HOOK_TIMEOUT_SECONDS, file.getAbsolutePath());
+        if (last == null) throw new IOException(HOOK_NAME + " printed nothing");
         return last;
     }
 

@@ -18,7 +18,8 @@ import com.termux.terminal.TerminalSession;
 
 /**
  * e16tae fork: shows the desktop notifications that programs ask for (OSC 9, 99 and 777) as
- * Android notifications. Tapping one opens its session.
+ * Android notifications. Tapping one opens its session, and runs ~/bin/termux-notification-hook
+ * with the title, body and id if it exists, e.g. to go to what the notification is about.
  */
 public final class TerminalNotifier {
 
@@ -27,6 +28,12 @@ public final class TerminalNotifier {
     public static final String EXTRA_SESSION_HANDLE = "session_handle";
     /** Text to write to the session, if the program asked to be told about the activation. */
     public static final String EXTRA_REPORT = "report";
+    private static final String EXTRA_TITLE = "title";
+    private static final String EXTRA_BODY = "body";
+    private static final String EXTRA_ID = "id";
+
+    private static final String HOOK_NAME = "termux-notification-hook";
+    private static final long HOOK_TIMEOUT_SECONDS = 30;
 
     private static final String LOG_TAG = "TerminalNotifier";
     private static final String CHANNEL_ID = "termux_terminal_notification";
@@ -61,6 +68,9 @@ public final class TerminalNotifier {
             .setAction(ACTION_ACTIVATE)
             .putExtra(EXTRA_SESSION_HANDLE, session.mHandle)
             .putExtra(EXTRA_REPORT, notification.activationReport())
+            .putExtra(EXTRA_TITLE, notification.title)
+            .putExtra(EXTRA_BODY, notification.body)
+            .putExtra(EXTRA_ID, notification.id)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
@@ -120,6 +130,24 @@ public final class TerminalNotifier {
         activity.getTermuxTerminalSessionClient().setCurrentSession(session);
         String report = intent.getStringExtra(EXTRA_REPORT);
         if (report != null && session.isRunning()) session.write(report);
+        runHook(activity.getApplicationContext(), nonNull(intent.getStringExtra(EXTRA_TITLE)),
+            nonNull(intent.getStringExtra(EXTRA_BODY)), nonNull(intent.getStringExtra(EXTRA_ID)));
         return true;
+    }
+
+    private static void runHook(Context context, String title, String body, String id) {
+        java.io.File hook = TermuxHooks.find(HOOK_NAME);
+        if (hook == null) return;
+        new Thread(() -> {
+            try {
+                TermuxHooks.run(context, hook, HOOK_TIMEOUT_SECONDS, title, body, id);
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, HOOK_NAME + " failed", e);
+            }
+        }).start();
+    }
+
+    private static String nonNull(@Nullable String text) {
+        return text != null ? text : "";
     }
 }
