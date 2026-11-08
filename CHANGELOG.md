@@ -15,7 +15,7 @@ Each release is tagged `v<upstream version>-e16tae.<n>`.
 - **Space-bar cursor control** of keyboards such as Samsung Keyboard moves the terminal cursor.
 - **Update button in the drawer:** checks this fork's releases, downloads the APK, verifies its checksum and opens Android's installer. Long-press it to install the latest development build.
 - **Drawer:** a menu button opens the terminal menu (keep screen on, reset, share, …), which long press no longer reaches while a program tracks the mouse.
-- **Attach:** the `ATTACH` extra key picks files, copies them to `~/downloads/attach` and pastes their paths. If `~/bin/termux-attach-hook` exists, it runs with each file and the last line it prints is pasted instead, e.g. the path after uploading the file to the machine you are connected to.
+- **Attach:** the `ATTACH` extra key picks files, copies them to `~/downloads/attach` and pastes their paths. If `~/bin/termux-attach-hook` exists, it runs with each file and the last line it prints is pasted instead, e.g. the path after uploading the file to the machine you are connected to. Pasting attaches the files on the clipboard (e.g. a copied screenshot) the same way, and so do images inserted from the keyboard, e.g. from its clipboard history.
 - **Korean translation** of the app's interface.
 - Removed the swipe-in text input page of the extra keys bar.
 
@@ -26,6 +26,6 @@ Each release is tagged `v<upstream version>-e16tae.<n>`.
 - 삼성 키보드 같은 키보드의 **스페이스바 커서 이동**으로 터미널 커서가 움직입니다.
 - **서랍의 업데이트 버튼:** 이 포크의 릴리스를 확인하고, APK를 받아 체크섬을 확인한 뒤 Android 설치 화면을 엽니다. 길게 누르면 최신 개발용 시험판을 설치합니다.
 - **서랍:** 메뉴 버튼으로 터미널 메뉴(화면 켜짐 유지, 초기화, 공유 등)를 엽니다. 마우스를 쓰는 앱에서는 길게 눌러도 이 메뉴가 열리지 않기 때문입니다.
-- **첨부:** 보조키 `ATTACH`로 파일을 고르면 `~/downloads/attach`에 복사하고 경로를 붙여 넣습니다. `~/bin/termux-attach-hook`이 있으면 파일마다 실행하고, 그 출력의 마지막 줄을 대신 붙여 넣습니다. 예를 들어 접속한 머신에 파일을 올리고 그 경로를 출력하게 할 수 있습니다.
+- **첨부:** 보조키 `ATTACH`로 파일을 고르면 `~/downloads/attach`에 복사하고 경로를 붙여 넣습니다. `~/bin/termux-attach-hook`이 있으면 파일마다 실행하고, 그 출력의 마지막 줄을 대신 붙여 넣습니다. 예를 들어 접속한 머신에 파일을 올리고 그 경로를 출력하게 할 수 있습니다. 클립보드에 파일(복사한 스크린샷 등)이 있을 때 붙여 넣거나, 키보드에서 이미지를 넣을 때(키보드 클립보드 기록 등)도 같은 방식으로 첨부합니다.
 - 앱 화면 **한국어 번역**.
 - 보조키 줄을 밀면 나오던 글자 입력칸을 없앴습니다.

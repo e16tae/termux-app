@@ -192,6 +192,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onPasteTextFromClipboard(@Nullable TerminalSession session) {
         if (!mActivity.isVisible()) return;
 
+        // Files on the clipboard, e.g. a copied screenshot, are attached instead of pasted as text.
+        if (mActivity.getFileAttacher().attachFromClipboard()) return;
+
         String text = ShareUtils.getTextStringFromClipboardIfSet(mActivity, true);
         if (text != null)
             mActivity.getTerminalView().mEmulator.paste(text);

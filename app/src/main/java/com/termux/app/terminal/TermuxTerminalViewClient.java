@@ -222,6 +222,12 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     }
 
     @Override
+    public boolean onImeContent(android.net.Uri uri, Runnable release) {
+        mActivity.getFileAttacher().attach(java.util.Collections.singletonList(uri), release);
+        return true;
+    }
+
+    @Override
     public boolean shouldUseCtrlSpaceWorkaround() {
         return mActivity.getProperties().isUsingCtrlSpaceWorkaround();
     }

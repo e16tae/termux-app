@@ -34,6 +34,11 @@ public class TermuxTerminalViewClientBase implements TerminalViewClient {
         return false;
     }
 
+    @Override
+    public boolean onImeContent(android.net.Uri uri, Runnable release) {
+        return false;
+    }
+
     public boolean shouldUseCtrlSpaceWorkaround() {
         return false;
     }

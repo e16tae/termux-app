@@ -34,6 +34,15 @@ public interface TerminalViewClient {
 
     boolean shouldEnableImeComposing();
 
+    /**
+     * Called when the keyboard inserts content such as an image (see
+     * {@link android.view.inputmethod.InputConnection#commitContent}).
+     *
+     * @param release to run once the content has been read.
+     * @return whether the content was taken. If not, {@code release} is not run.
+     */
+    boolean onImeContent(android.net.Uri uri, Runnable release);
+
     boolean shouldUseCtrlSpaceWorkaround();
 
     boolean isTerminalViewSelected();

@@ -2,14 +2,19 @@ package com.termux.app;
 
 import android.app.Activity;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.webkit.MimeTypeMap;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.shared.logger.Logger;
@@ -35,8 +40,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * e16tae fork: attach files to the terminal input.
  *
- * Picks files with the system picker, copies them to ~/downloads/attach and pastes their paths
- * into the current session. If ~/bin/termux-attach-hook exists, it is run with each copied file
+ * Picks files with the system picker (or takes them from the clipboard or the keyboard), copies
+ * them to ~/downloads/attach and pastes their paths into the current session. If ~/bin/termux-attach-hook exists, it is run with each copied file
  * and the last line it prints is pasted instead, so it can e.g. upload the file to the machine
  * the terminal is connected to and print the remote path.
  */
@@ -86,22 +91,64 @@ public final class FileAttacher {
         } else if (data.getData() != null) {
             uris.add(data.getData());
         }
-        if (uris.isEmpty()) return true;
+        attach(uris, null);
+        return true;
+    }
+
+    /**
+     * Attaches the files on the clipboard, e.g. a copied screenshot, if it holds files instead of
+     * text.
+     *
+     * @return whether the clipboard held files.
+     */
+    public boolean attachFromClipboard() {
+        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
+        if (clip == null) return false;
+        List<Uri> uris = new ArrayList<>();
+        for (int i = 0; i < clip.getItemCount(); i++) {
+            ClipData.Item item = clip.getItemAt(i);
+            if (item.getText() != null || item.getUri() == null) return false;
+            if (!ContentResolver.SCHEME_CONTENT.equals(item.getUri().getScheme())) return false;
+            uris.add(item.getUri());
+        }
+        if (uris.isEmpty()) return false;
+        attach(uris, null);
+        return true;
+    }
+
+    /**
+     * Copies the files, runs the hook on them and pastes the resulting paths.
+     *
+     * @param onRead run once the files have been read, e.g. to release a temporary permission.
+     */
+    public void attach(List<Uri> uris, @Nullable Runnable onRead) {
+        if (uris.isEmpty() || mBusy) {
+            if (mBusy) toast(R.string.e16tae_attach_busy);
+            if (onRead != null) onRead.run();
+            return;
+        }
 
         final boolean hasHook = new File(HOOK_PATH).canExecute();
         mBusy = true;
         toast(hasHook ? R.string.e16tae_attach_uploading : R.string.e16tae_attach_copying);
         new Thread(() -> {
             final List<String> paths = new ArrayList<>();
+            final List<File> copies = new ArrayList<>();
             String error = null;
             try {
-                for (Uri uri : uris) {
-                    File local = copyToAttachDir(uri);
-                    paths.add(hasHook ? runHook(local) : local.getAbsolutePath());
-                }
+                for (Uri uri : uris) copies.add(copyToAttachDir(uri));
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Copying failed", e);
+                error = String.valueOf(e.getMessage());
+            } finally {
+                if (onRead != null) mMainHandler.post(onRead);
+            }
+            try {
+                for (File local : copies) paths.add(hasHook ? runHook(local) : local.getAbsolutePath());
             } catch (Exception e) {
                 Logger.logStackTraceWithMessage(LOG_TAG, "Attaching failed", e);
-                error = String.valueOf(e.getMessage());
+                if (error == null) error = String.valueOf(e.getMessage());
             }
             final String fError = error;
             mMainHandler.post(() -> {
@@ -111,7 +158,6 @@ public final class FileAttacher {
                     Toast.makeText(mActivity, mActivity.getString(R.string.e16tae_attach_failed, fError), Toast.LENGTH_LONG).show();
             });
         }).start();
-        return true;
     }
 
     private void pastePaths(List<String> paths) {
@@ -129,8 +175,14 @@ public final class FileAttacher {
         File dir = new File(ATTACH_DIR_PATH);
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + ATTACH_DIR_PATH);
         String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
-        File target = uniqueFile(dir, stamp + "-" + safeName(displayName(uri)));
         ContentResolver resolver = mActivity.getContentResolver();
+        String name = safeName(displayName(uri));
+        if (name.lastIndexOf('.') <= 0) {
+            // Programs tell images from other files by the extension, e.g. for keyboard content.
+            String ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(resolver.getType(uri));
+            if (ext != null) name += "." + ext;
+        }
+        File target = uniqueFile(dir, stamp + "-" + name);
         try (InputStream in = resolver.openInputStream(uri); OutputStream out = new FileOutputStream(target)) {
             if (in == null) throw new IOException("Cannot read " + uri);
             byte[] buffer = new byte[65536];

@@ -33,6 +33,7 @@ import android.view.autofill.AutofillValue;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Scroller;
 
@@ -405,7 +406,33 @@ public final class TerminalView extends View {
         // keyboard on Android TV (see https://github.com/termux/termux-app/issues/221).
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
 
+        // Lets keyboards insert images, e.g. from their clipboard history (see commitContent below).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1 && mClient.isTerminalViewSelected())
+            outAttrs.contentMimeTypes = new String[]{"image/*"};
+
         BaseInputConnection connection = new BaseInputConnection(this, true) {
+
+            @Override
+            @RequiresApi(Build.VERSION_CODES.N_MR1)
+            public boolean commitContent(InputContentInfo info, int flags, android.os.Bundle opts) {
+                if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
+                    mClient.logInfo(LOG_TAG, "IME: commitContent(" + info.getContentUri() + ", " + flags + ")");
+                boolean granted = false;
+                if ((flags & InputConnection.INPUT_CONTENT_GRANT_READ_URI_PERMISSION) != 0) {
+                    try {
+                        info.requestPermission();
+                        granted = true;
+                    } catch (Exception e) {
+                        mClient.logError(LOG_TAG, "IME: cannot read the committed content: " + e);
+                        return false;
+                    }
+                }
+                final boolean release = granted;
+                if (mClient.onImeContent(info.getContentUri(), () -> { if (release) info.releasePermission(); }))
+                    return true;
+                if (granted) info.releasePermission();
+                return false;
+            }
 
             @Override
             public boolean setComposingText(CharSequence text, int newCursorPosition) {
