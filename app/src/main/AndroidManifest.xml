@@ -157,6 +157,10 @@
             </intent-filter>
         </activity-alias>
 
+        <receiver
+            android:name=".app.AppUpdater$InstallResultReceiver"
+            android:exported="false" />
+
         <provider
             android:name=".filepicker.TermuxDocumentsProvider"
             android:authorities="${TERMUX_PACKAGE_NAME}.documents"

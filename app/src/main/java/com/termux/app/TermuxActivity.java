@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -24,6 +25,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.termux.R;
@@ -192,6 +194,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
 
+    private AppUpdater.Listener mUpdateListener;
+
     private static final String LOG_TAG = "TermuxActivity";
 
     @Override
@@ -251,6 +255,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setToggleKeyboardView();
 
+        setUpdateButtonView();
+
         registerForContextMenu(mTerminalView);
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
@@ -299,6 +305,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             addTermuxActivityRootViewGlobalLayoutListener();
 
         registerTermuxActivityBroadcastReceiver();
+
+        AppUpdater.get(this).checkIfStale();
     }
 
     @Override
@@ -347,6 +355,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Override
     public void onDestroy() {
         super.onDestroy();
+
+        AppUpdater.get(this).clearListener(mUpdateListener);
 
         Logger.logDebug(LOG_TAG, "onDestroy");
 
@@ -579,6 +589,31 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 R.string.action_new_session_failsafe, text -> mTermuxTerminalSessionActivityClient.addNewSession(true, text),
                 -1, null, null);
             return true;
+        });
+    }
+
+    private void setUpdateButtonView() {
+        TextView updateButton = findViewById(R.id.e16tae_update_button);
+        AppUpdater updater = AppUpdater.get(this);
+        updateButton.setOnClickListener(v -> updater.onButtonClicked());
+        mUpdateListener = (state, latestTag, progress) -> {
+            switch (state) {
+                case CHECKING: updateButton.setText(R.string.e16tae_update_checking); break;
+                case UP_TO_DATE: updateButton.setText(getString(R.string.e16tae_update_latest, updater.installedLabel())); break;
+                case AVAILABLE: updateButton.setText(getString(R.string.e16tae_update_install, latestTag)); break;
+                case DOWNLOADING: updateButton.setText(getString(R.string.e16tae_update_downloading, progress)); break;
+                case INSTALLING: updateButton.setText(R.string.e16tae_update_installing); break;
+                case FAILED: updateButton.setText(R.string.e16tae_update_retry); break;
+                default: updateButton.setText(R.string.e16tae_update_check);
+            }
+            updateButton.setTypeface(null, state == AppUpdater.State.AVAILABLE ? Typeface.BOLD : Typeface.NORMAL);
+        };
+        updater.setListener(mUpdateListener);
+        getDrawer().addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            @Override
+            public void onDrawerOpened(View drawerView) {
+                updater.checkIfStale();
+            }
         });
     }
 
