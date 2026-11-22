@@ -198,7 +198,12 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             }
         }
 
-        if (!term.isMouseTrackingActive() && !e.isFromSource(InputDevice.SOURCE_MOUSE)) {
+        if (e.isFromSource(InputDevice.SOURCE_MOUSE)) return;
+
+        // A program tracking the mouse gets taps as clicks. Tapping near its cursor, i.e. the line
+        // being edited, also brings up the keyboard, while taps elsewhere (tabs, panes) do not.
+        if (!term.isMouseTrackingActive() || (mActivity.getProperties().shouldShowSoftKeyboardOnCursorTap()
+            && mActivity.getTerminalView().wasLastTapNearCursor())) {
             if (!KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity))
                 KeyboardUtils.showSoftKeyboard(mActivity, mActivity.getTerminalView());
             else

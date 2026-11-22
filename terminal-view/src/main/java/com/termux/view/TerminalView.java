@@ -130,6 +130,10 @@ public final class TerminalView extends View {
     private static final int DOUBLE_CLICK_MILLIS = 500;
     private long mLastTapTime;
     private int mLastTapColumn, mLastTapRow;
+    /** Rows above and below the cursor in which a tap counts as tapping the line being edited. */
+    private static final int CURSOR_TAP_ROWS = 2;
+    /** Whether the last touch on a mouse-tracking program landed near its visible cursor. */
+    private boolean mLastTapNearCursor;
 
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
@@ -284,6 +288,11 @@ public final class TerminalView extends View {
 
             @Override
             public boolean onDown(float x, float y) {
+                // Judged when the finger lands: before the click, which may move the cursor (e.g. to
+                // another pane), and before a slow tap is confirmed, which comes ahead of onUp().
+                mLastTapNearCursor = mEmulator != null && mEmulator.isMouseTrackingActive()
+                    && !isSelectingText() && (mMouseSelection == null || !mMouseSelection.isHolding())
+                    && isNearCursor(y);
                 // Why is true not returned here?
                 // https://developer.android.com/training/gestures/detector.html#detect-a-subset-of-supported-gestures
                 // Although setting this to true still does not solve the following errors when long pressing in terminal view text area
@@ -1098,6 +1107,21 @@ public final class TerminalView extends View {
             // If left alt, send escape before the code point to make e.g. Alt+B and Alt+F work in readline:
             mTermSession.writeCodePoint(altDown, codePoint);
         }
+    }
+
+    /** Whether the y coordinate is on a row close to the cursor while the program shows it. */
+    private boolean isNearCursor(float y) {
+        if (!mEmulator.isCursorEnabled()) return false;
+        final int row = (int) ((y - mRenderer.mFontLineSpacingAndAscent) / mRenderer.mFontLineSpacing) + mTopRow;
+        return Math.abs(row - mEmulator.getCursorRow()) <= CURSOR_TAP_ROWS;
+    }
+
+    /**
+     * Whether the last touch on a program tracking the mouse landed near the cursor it shows, i.e.
+     * likely on the line being edited. Programs put the cursor where text goes.
+     */
+    public boolean wasLastTapNearCursor() {
+        return mLastTapNearCursor;
     }
 
     private boolean isRepeatedTap(MotionEvent event) {

@@ -610,6 +610,10 @@ public abstract class TermuxSharedProperties {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_RUN_TERMUX_AM_SOCKET_SERVER, true);
     }
 
+    public boolean shouldShowSoftKeyboardOnCursorTap() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_SOFT_KEYBOARD_ON_CURSOR_TAP, true);
+    }
+
     public boolean shouldOpenTerminalTranscriptURLOnClick() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_TERMINAL_ONCLICK_URL_OPEN, true);
     }
