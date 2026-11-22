@@ -6,6 +6,14 @@ Each release is tagged `v<upstream version>-e16tae.<n>`.
 이 포크가 [termux/termux-app](https://github.com/termux/termux-app) 위에 더한 변경 사항입니다.
 릴리스 태그는 `v<원본 버전>-e16tae.<번호>` 형식입니다.
 
+## v0.118.0-e16tae.3 (2026-11-22)
+
+### English
+- **Keyboard from a tap in mouse-tracking apps:** apps that track the mouse (tmux-like multiplexers, full-screen TUIs) get taps as clicks, so a tap never brought up the keyboard. Tapping within two rows of the visible cursor, where apps put the line being edited, now also shows it; taps elsewhere (tabs, panes) stay plain clicks. Turn it off with `soft-keyboard-on-cursor-tap=false` in `termux.properties`.
+
+### 한국어
+- **마우스를 쓰는 앱에서 탭으로 키보드 열기:** 마우스를 추적하는 앱(tmux 같은 멀티플렉서, 전체 화면 TUI)에서는 탭이 클릭으로만 가서 키보드가 뜨지 않았습니다. 이제 보이는 커서의 위아래 2줄 안(앱이 입력 중인 줄을 두는 곳)을 탭하면 키보드도 뜹니다. 다른 곳(탭, 패널)을 누르면 지금처럼 클릭만 갑니다. `termux.properties`에 `soft-keyboard-on-cursor-tap=false`를 넣으면 끕니다.
+
 ## v0.118.0-e16tae.2 (2026-11-08)
 
 ### English
